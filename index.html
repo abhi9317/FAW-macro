@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The scale of farmed-animal suffering</title>
+<meta name="description" content="How much farmed-animal suffering is there, and how much do welfare reforms reduce? Change the assumptions and watch the answer move.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* The five brand colours, defined once and never redefined. Every other
+     colour on the page - including both themes' roles - is a color-mix() of
+     these, so the palette constraint holds literally: five hex codes, no more. */
+  --c-ink:#09201f; --c-paper:#f7f9f7; --c-panel:#d3d9d4;
+  --c-accent:#307d5b; --c-warm:#9a5b2b;
+
+  /* Light theme roles. */
+  --ink:var(--c-ink); --paper:var(--c-paper); --panel:var(--c-panel);
+  --accent:var(--c-accent); --warm:var(--c-warm);
+
+  --rule:color-mix(in srgb, var(--ink) 14%, transparent);
+  --muted:color-mix(in srgb, var(--ink) 75%, transparent);
+  --measure:min(100% - 2.5rem, 46rem);
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  color-scheme:light;
+}
+/* Dark theme roles. The accents are mixed toward --c-panel because the base
+   brand greens score 3.40 and 3.15 against the dark ground - below the 4.5 WCAG
+   AA needs for text. At 70% they reach 5.15 and 4.87. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:var(--c-panel); --paper:var(--c-ink);
+    --panel:color-mix(in srgb, var(--c-panel) 10%, var(--c-ink));
+    --accent:color-mix(in srgb, var(--c-accent) 70%, var(--c-panel));
+    --warm:color-mix(in srgb, var(--c-warm) 70%, var(--c-panel));
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:var(--c-panel); --paper:var(--c-ink);
+  --panel:color-mix(in srgb, var(--c-panel) 10%, var(--c-ink));
+  --accent:color-mix(in srgb, var(--c-accent) 70%, var(--c-panel));
+  --warm:color-mix(in srgb, var(--c-warm) 70%, var(--c-panel));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+     font-family:var(--body);font-size:16.5px;line-height:1.6}
+main{width:var(--measure);margin-inline:auto;padding-block:0 5rem}
+h1{font-family:var(--disp);font-size:clamp(1.9rem,5vw,3rem);
+   line-height:1.08;letter-spacing:-.02em;font-weight:600;margin:0 0 .6em}
+h2{font-family:var(--disp);font-size:1.4rem;line-height:1.25;
+   letter-spacing:-.01em;font-weight:600;margin:0 0 .7em}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.panel{background:var(--panel);border-radius:.6rem;padding:1.1rem 1.25rem}
+.bar{height:1rem;background:var(--paper);
+     border-radius:.2rem;overflow:hidden}
+.bar>i{display:block;height:100%;transition:width .3s}
+.tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;
+     text-transform:uppercase;padding:.1rem .4rem;border-radius:.2rem}
+.tag-measured{background:var(--accent);color:var(--paper)}
+.tag-proxied{background:color-mix(in srgb,var(--warm) 45%,transparent);color:var(--ink)}
+.tag-author{background:var(--warm);color:var(--paper)}
+.scroll-x{overflow-x:auto}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<a href="#root" style="position:absolute;left:-9999px"
+   onfocus="this.style.left='0.5rem'">Skip to content</a>
+<button id="theme" aria-label="Switch between light and dark"
+  style="position:fixed;top:.75rem;right:.75rem;z-index:9;cursor:pointer;
+         font-family:var(--mono);font-size:.7rem;padding:.3rem .55rem;
+         border-radius:.3rem;border:1px solid var(--rule);
+         background:var(--paper);color:var(--ink)">theme</button>
+<script>
+document.getElementById("theme").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const dark = cur ? cur === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+});
+</script>
+<main id="root"></main>
+<noscript>
+  <main>
+    <h1>The scale of farmed-animal suffering</h1>
+    <p>This page needs JavaScript to let you change its assumptions. At its
+    default settings it estimates <strong>705 million welfare-adjusted pain
+    years</strong> per year across nine farmed species — one welfare-adjusted
+    pain year being one year of disabling-level pain at human-equivalent
+    intensity.</p>
+    <p>Sources:
+      <a href="https://welfarefootprint.org/">Welfare Footprint Project</a>,
+      <a href="https://rethinkpriorities.org/research-area/welfare-range-estimates/">Rethink Priorities welfare ranges</a>,
+      <a href="https://rethinkpriorities.github.io/quantifying_shrimp_pain/">Quantifying shrimp pain</a>.
+    </p>
+  </main>
+</noscript>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"
+  integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z"
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"
+  integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"
+  crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module" src="./ui.js"></script>
+</body>
+</html>
