@@ -122,8 +122,14 @@ function RangeBar({ value, min, max, scaleMax, color }) {
                 style: { left: pct(min), width: `calc(${pct(max)} - ${pct(min)})` } }));
 }
 
+const SECTIONS = [
+  ["assumptions", "Assumptions"], ["species", "By species"], ["country", "By country"],
+  ["reforms", "What reforms reduce"], ["bottom-line", "The bottom line"],
+];
+const sectionId = kicker => (SECTIONS.find(([, l]) => l === kicker) ?? [])[0];
+
 const Section = ({ n, kicker, heading, children }) =>
-  h("section", null,
+  h("section", { id: sectionId(kicker) },
     h("div", { className: "kicker" }, n + " · " + kicker),
     h("h2", null, heading),
     children);
@@ -167,7 +173,7 @@ function TierControl({ state, set }) {
 // RP species the page actually uses, and which page species borrow each.
 const WR_PLOT = [
   { wrKey: "pig", name: "Pigs", icon: "pigs", uses: "pigs, cattle, sheep" },
-  { wrKey: "chicken", name: "Chickens", icon: "layers", uses: "broilers, layers, ducks, turkeys" },
+  { wrKey: "chicken", name: "Chickens", icon: "broilers", uses: "broilers, layers, ducks, turkeys" },
   { wrKey: "carp", name: "Carp", icon: "fish", uses: "farmed fish" },
   { wrKey: "shrimp", name: "Shrimp", icon: "shrimp", uses: "shrimp" },
 ];
@@ -490,7 +496,7 @@ function ReformSection({ reforms }) {
 
   return h(Section, { n: "03", kicker: "What reforms reduce",
       heading: `The biggest single reform removes ` +
-               `${formatPercent(rows[0].shareOfTotal.value, 0)} of it.` },
+               `${formatPercent(rows[0].shareOfTotal.value, 0)} of suffering.` },
     h("p", { style: { marginTop: 0, fontSize: ".95rem", color: "var(--muted)" } },
       "Each figure is the share of ", h("strong", { style: { color: "var(--ink)" } },
         "all farmed-animal pain hours"),
@@ -573,7 +579,7 @@ function BottomLine({ combined, species, reforms }) {
   const fish = species.rows.find(r => r.key === "fish");
   return h(Section, { n: "04", kicker: "The bottom line",
       heading: `Fully implemented, today's reforms would remove ` +
-               `${formatPercent(combined.value, 0)} of it.` },
+               `${formatPercent(combined.value, 0)} of suffering.` },
     h(RemovedChart, { combined, reforms }),
     h("p", { style: { fontSize: ".95rem" } },
       "That counts every reform above at full, worldwide adoption — cage-free ",
@@ -587,7 +593,38 @@ function BottomLine({ combined, species, reforms }) {
             " of the total, with stunning at slaughter as the only reform counted. ")
         : null,
       "The ", formatPercent(combined.value, 0), " uses the settings above; the ",
-      "range also covers tier ratios and welfare ranges you haven't picked."));
+      "range also covers tier ratios and welfare ranges you haven't picked."),
+    h(Caveats, { species }));
+}
+
+/** The two assumptions that most limit how far these numbers can be read. */
+function Caveats({ species }) {
+  const unmeasured = species.rows.filter(r => r.provenance !== "measured")
+    .reduce((a, r) => a + r.painYears, 0);
+  const fish = species.rows.find(r => r.key === "fish");
+  const item = (n, title, body) => h("li", { className: "caveat" },
+    h("span", { className: "fig caveat-n", "aria-hidden": true }, n),
+    h("div", null, h("strong", null, title), " ", body));
+  return h("div", { className: "panel", style: { marginTop: "1.5rem" } },
+    h("h3", { style: { fontFamily: "var(--disp)", fontSize: "1.15rem", fontWeight: 600,
+                       margin: "0 0 .8rem" } }, "Two things to keep in mind"),
+    h("ol", { style: { listStyle: "none", margin: 0, padding: 0, display: "grid",
+                       gap: "1rem" } },
+      item("1", "The measured figures are closer to a floor than a full count.",
+        "Each pain track includes only the harms its authors analysed — anything " +
+        "unstudied counts as zero — and none of them credit positive experiences. " +
+        "The true level of suffering is likely higher."),
+      item("2", h(Fragment, null, h("span", { className: "tnum" },
+          formatPercent(shareOf(unmeasured, species.total), 0)),
+          " of this total is not measured at all."),
+        h(Fragment, null, "Most of it is farmed fish (",
+          h("span", { className: "tnum" }, formatPercent(shareOf(fish?.painYears ?? 0,
+                                                                  species.total), 0)),
+          "). We don't yet understand fish lives well enough to say how much they ",
+          "suffer compared with other species, so their figure is an assumption — ",
+          h("span", { className: "tnum" }, (fish?.multiple ?? 0).toFixed(2) + "x"),
+          " a broiler's pain — that you can change under Assumptions. Moving it ",
+          "can reorder which species suffers most."))));
 }
 
 function Provenance({ anchor, species }) {
@@ -709,8 +746,8 @@ function App() {
 
   return h(Fragment, null,
     h(Hero, { total: species.total, species, countries, combined }),
-    h(Section, { n: "00", kicker: "Assumptions",
-                 heading: "The two things you can change" },
+    h(SectionNav),
+    h(Section, { n: "00", kicker: "Assumptions", heading: "Two main assumptions." },
       h("button", { onClick: reset, className: "btn",
           style: { marginBottom: ".8rem", color: "var(--warm)" } }, "Reset assumptions"),
       h("h3", { style: { fontFamily: "var(--disp)", fontSize: "1.15rem", fontWeight: 600,
@@ -778,6 +815,30 @@ function SpeciesStack({ species }) {
                     segments.map(x => x.name + " " + share(x.value)).join(", ") },
       h(Legend, { items: segments.map(x => ({ key: x.key, name: x.name,
                                               color: x.color, value: share(x.value) })) })));
+}
+
+/** Sticky jump menu. Highlights whichever section is crossing the upper third
+ *  of the viewport. */
+function SectionNav() {
+  const [active, setActive] = useState(null);
+  useEffect(() => {
+    if (typeof IntersectionObserver !== "function") return;
+    const io = new IntersectionObserver(entries => {
+      for (const e of entries) if (e.isIntersecting) setActive(e.target.id);
+    }, { rootMargin: "-30% 0px -65% 0px" });
+    SECTIONS.forEach(([id]) => { const el = document.getElementById(id); if (el) io.observe(el); });
+    return () => io.disconnect();
+  }, []);
+  return h("nav", { className: "jump", "aria-label": "Sections" },
+    ...SECTIONS.map(([id, label]) => h("a", { key: id, href: "#" + id,
+        "aria-current": active === id ? "true" : undefined,
+        onClick: e => {
+          // The URL hash holds the shareable state, so scroll without
+          // replacing it with a section anchor.
+          e.preventDefault();
+          document.getElementById(id)?.scrollIntoView({
+            behavior: REDUCED_MOTION ? "auto" : "smooth" });
+        } }, label)));
 }
 
 function Hero({ total, species, countries, combined }) {

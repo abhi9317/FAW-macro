@@ -8,8 +8,8 @@ import { dirname, join } from "path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MAP = {
-  layers:   { file: "noun_Chicken_6985354.svg" },   // hen
-  broilers: { file: "noun_Chicken_6985370.svg" },   // rooster
+  broilers: { file: "noun_Chicken_6985354.svg" },   // hen
+  layers:   { file: "noun_Chicken_6985370.svg" },   // rooster
   cattle:   { file: "noun_Cow_2020629.svg" },
   fish:     { file: "noun_Fish_2020627.svg" },
   sheep:    { file: "noun_Goat_6985368.svg", flip: true },
