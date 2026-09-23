@@ -1,7 +1,7 @@
 // ui.js — React rendering. All arithmetic lives in model.js.
 import {
   DEFAULT_STATE, encodeState, decodeState, tierWeights, exchangeRates,
-  speciesTotals, countryTotals, reformTable, combinedReformShare, reformUncertainty, anchorFraction,
+  speciesTotals, countryTotals, reformTable, combinedReformShare, reformUncertainty, anchorFraction, ALTERNATIVE_REFORMS,
   formatPainYears, formatPercent, LADDER_MIN, LADDER_MAX, HOURS_PER_YEAR,
 } from "./model.js";
 import { PAIN_TRACKS, SPECIES, WELFARE_RANGE_INTERVALS } from "./data.js";
@@ -28,6 +28,55 @@ const Bar = ({ value, max, color }) =>
 const Slider = ({ value, min, max, step, onChange, label }) =>
   h("input", { type: "range", value, min, max, step, "aria-label": label,
                onChange: e => onChange(parseFloat(e.target.value)) });
+
+// Species colours follow the species, never its rank, so a reader learns the
+// key once. Six hues (validated for colour-blind separation in stack order
+// against both panel surfaces); the three smallest species share "other".
+const HUED_SPECIES = ["fish", "broilers", "layers", "shrimp", "pigs", "ducks"];
+const speciesColor = key =>
+  `var(--sp-${HUED_SPECIES.includes(key) ? key : "other"})`;
+
+const Swatch = ({ color }) => h("i", { "aria-hidden": true, style: {
+  display: "inline-block", width: ".7rem", height: ".7rem", borderRadius: ".15rem",
+  background: color, flex: "none" } });
+
+/** A 100% stacked bar. Segments are separated by a 2px surface gap; the
+ *  hovered or focused one is described in the readout line below it. */
+function StackBar({ segments, total, label, children }) {
+  const [hover, setHover] = useState(null);
+  const seg = segments.find(x => x.key === hover);
+  return h("div", null,
+    h("div", { className: "stack", role: "img", "aria-label": label },
+      ...segments.filter(x => x.value > 0).map(x => h("div", {
+        key: x.key, tabIndex: 0, title: x.detail,
+        onMouseEnter: () => setHover(x.key), onFocus: () => setHover(x.key),
+        onMouseLeave: () => setHover(null), onBlur: () => setHover(null),
+        onClick: () => setHover(x.key),
+        style: { flexGrow: x.value / total, background: x.color,
+                 opacity: hover && hover !== x.key ? 0.55 : 1 } }))),
+    children,
+    h("div", { "aria-live": "polite", className: "num", style: { minHeight: "1.2rem",
+        fontSize: ".75rem", color: "var(--muted)", marginTop: ".35rem" } },
+      seg ? seg.detail : ""));
+}
+
+const Legend = ({ items }) =>
+  h("div", { style: { display: "flex", flexWrap: "wrap", gap: ".3rem 1rem",
+                      marginTop: ".55rem", fontSize: ".82rem" } },
+    ...items.map(i => h("span", { key: i.key, style: { display: "inline-flex",
+        alignItems: "center", gap: ".35rem" } },
+      h(Swatch, { color: i.color }), i.name,
+      i.value != null ? h("span", { className: "num", style: { color: "var(--muted)" } },
+        i.value) : null)));
+
+/** Bar plus a 90%-interval whisker, on a shared scale. */
+function RangeBar({ value, min, max, scaleMax, color }) {
+  const pct = v => Math.max(0, Math.min(100, (v / scaleMax) * 100)) + "%";
+  return h("div", { className: "bar", style: { position: "relative", overflow: "visible" } },
+    h("i", { style: { width: pct(value), background: color, borderRadius: "0 .25rem .25rem 0" } }),
+    h("span", { "aria-hidden": true, className: "whisker",
+                style: { left: pct(min), width: `calc(${pct(max)} - ${pct(min)})` } }));
+}
 
 const Section = ({ n, kicker, heading, children }) =>
   h("section", { style: { paddingTop: "3rem" } },
@@ -173,8 +222,6 @@ function WorkedHen({ weights }) {
       "is a separate number, in section 03."));
 }
 
-const rampColor = (i, n) =>
-  `color-mix(in srgb, var(--accent) ${100 - (i / Math.max(1, n - 1)) * 100}%, var(--warm))`;
 
 function SpeciesSection({ species, state, set }) {
   const rows = [...species.rows].sort((a, b) => b.painYears - a.painYears);
@@ -196,7 +243,7 @@ function SpeciesSection({ species, state, set }) {
           display: "grid", gridTemplateColumns: "minmax(6rem,9rem) 1fr auto auto",
           gap: ".6rem", alignItems: "center", padding: ".3rem 0" } },
         h("span", { style: { fontSize: ".9rem" } }, r.name),
-        h(Bar, { value: r.painYears, max, color: rampColor(i, rows.length) }),
+        h(Bar, { value: r.painYears, max, color: speciesColor(r.key) }),
         h("span", { className: "num", style: { fontSize: ".78rem" } },
           formatPercent(shareOf(r.painYears, species.total), 1)),
         h(Tag, { kind: r.provenance })))));
@@ -215,7 +262,7 @@ function CountryBreakdown({ row }) {
         display: "grid", gridTemplateColumns: "minmax(6rem,9rem) 1fr 3.5rem",
         gap: ".6rem", alignItems: "center", padding: ".12rem 0" } },
       h("span", { style: { fontSize: ".82rem" } }, SPECIES_NAME[key] ?? key),
-      h(Bar, { value: v, max, color: rampColor(i, parts.length) }),
+      h(Bar, { value: v, max, color: speciesColor(key) }),
       h("span", { className: "num", style: { fontSize: ".75rem", textAlign: "right" } },
         formatPercent(shareOf(v, row.painYears), 1)))));
 }
@@ -263,7 +310,8 @@ const rangeText = ({ min, max }) =>
 
 function ReformSection({ reforms }) {
   const rows = [...reforms].sort((a, b) => b.shareOfTotal.value - a.shareOfTotal.value);
-  const max = Math.max(...rows.map(r => r.shareOfTotal.value), 1e-9);
+  const scaleMax = Math.max(...rows.map(r => r.shareOfTotal.max),
+                            ...rows.map(r => r.shareOfTotal.value), 1e-9);
 
   return h(Section, { n: "03", kicker: "What reforms reduce",
       heading: `The biggest single reform removes ` +
@@ -276,43 +324,81 @@ function ReformSection({ reforms }) {
       "each pain tier is (anywhere from 1x to 1000x), and Rethink Priorities' ",
       "uncertainty about every welfare range."),
     h("div", { className: "panel" },
+      h("div", { style: { display: "flex", alignItems: "center", gap: ".45rem",
+          fontSize: ".75rem", color: "var(--muted)", marginBottom: ".3rem" } },
+        h("span", { className: "whisker-key", "aria-hidden": true }),
+        "line = 90% range; bar colour = species"),
       ...rows.map(r => h("div", { key: r.key, style: {
           padding: ".55rem 0", borderBottom: "1px solid var(--rule)" } },
         h("div", { style: { display: "flex", justifyContent: "space-between",
                             gap: ".6rem", fontSize: ".88rem" } },
           h("span", null, r.label),
           h("strong", { className: "num" }, formatPercent(r.shareOfTotal.value, 2))),
-        h(Bar, { value: r.shareOfTotal.value, max, color: "var(--warm)" }),
+        h(RangeBar, { ...r.shareOfTotal, scaleMax, color: speciesColor(r.species) }),
         h("div", { style: { display: "flex", justifyContent: "space-between",
                             gap: ".6rem", marginTop: ".25rem", flexWrap: "wrap" } },
           h("span", { className: "num", style: { fontSize: ".75rem",
               color: "var(--muted)" } },
-            "range " + rangeText(r.shareOfTotal) + " of all pain"),
+            "90% range " + rangeText(r.shareOfTotal)),
           h(Tag, { kind: r.provenance }))))),
     h("p", { style: { fontSize: ".82rem", color: "var(--muted)", fontStyle: "italic" } },
       "Cage-free and furnished cage are alternatives to the same baseline, not ",
       "additions to each other."));
 }
 
-function BottomLine({ combined, species }) {
+const SHORT_REFORM = { bcc: "Broilers: BCC", cagefree: "Hens: cage-free" };
+
+function RemovedChart({ combined, reforms }) {
+  // Only broilers' and layers' reforms get their own hue: every other reform
+  // is under 1.5% and folds into one grey segment, which also keeps pigs'
+  // pink away from the hens' aqua (too close for deuteranopes in dark mode).
+  const counted = reforms.filter(r => !ALTERNATIVE_REFORMS.includes(r.key));
+  const own = ["bcc", "cagefree"];
+  const named = counted.filter(r => own.includes(r.key))
+    .sort((a, b) => b.shareOfTotal.value - a.shareOfTotal.value);
+  const rest = counted.filter(r => !own.includes(r.key));
+  const restValue = rest.reduce((a, r) => a + r.shareOfTotal.value, 0);
+  const pct = v => formatPercent(v, 1);
+  const segments = [
+    ...named.map(r => ({ key: r.key, name: SHORT_REFORM[r.key] ?? r.label,
+      value: r.shareOfTotal.value, color: speciesColor(r.species),
+      detail: r.label + " · " + pct(r.shareOfTotal.value) })),
+    { key: "rest", name: "Other reforms", value: restValue, color: "var(--sp-other)",
+      detail: "Pigs, fish and shrimp reforms and CO₂ stunning · " + pct(restValue) },
+    { key: "left", name: "Not removed", value: Math.max(0, 1 - combined.value),
+      color: "var(--paper)", detail: "Not removed by any reform · " +
+        pct(Math.max(0, 1 - combined.value)) },
+  ];
+  const at = v => Math.max(0, Math.min(100, v * 100)) + "%";
+  return h("div", { className: "panel", style: { marginBottom: "1rem" } },
+    h("div", { style: { display: "flex", alignItems: "baseline", gap: ".6rem",
+                        flexWrap: "wrap", marginBottom: ".6rem" } },
+      h("span", { className: "num", style: { fontSize: "2.4rem", fontWeight: 700,
+                                             lineHeight: 1 } },
+        formatPercent(combined.value, 0)),
+      h("span", { style: { fontSize: ".85rem", color: "var(--muted)" } },
+        "of farmed-animal suffering removed · 90% range ",
+        h("span", { className: "num", style: { color: "var(--ink)" } },
+          formatPercent(combined.min, 0) + "–" + formatPercent(combined.max, 0)))),
+    h(StackBar, { segments, total: 1,
+        label: `Reforms remove ${formatPercent(combined.value, 0)} of the total, ` +
+               `90% range ${formatPercent(combined.min, 0)} to ${formatPercent(combined.max, 0)}` },
+      // The interval as a bracket under the bar, on the same 0-100% scale.
+      h("div", { "aria-hidden": true, style: { position: "relative", height: ".7rem" } },
+        h("span", { className: "bracket",
+                    style: { left: at(combined.min),
+                             width: `calc(${at(combined.max)} - ${at(combined.min)})` } }),
+        h("span", { className: "bracket-tick", style: { left: at(combined.value) } })),
+      h(Legend, { items: segments.map(x => ({ key: x.key, name: x.name,
+                                              color: x.color, value: pct(x.value) })) })));
+}
+
+function BottomLine({ combined, species, reforms }) {
   const fish = species.rows.find(r => r.key === "fish");
   return h(Section, { n: "04", kicker: "The bottom line",
       heading: `Fully implemented, today's reforms would remove ` +
                `${formatPercent(combined.value, 0)} of it.` },
-    h("div", { className: "panel", style: { display: "flex", flexWrap: "wrap",
-        gap: "1.5rem", alignItems: "baseline" } },
-      h("div", null,
-        h("div", { className: "num", style: { fontSize: "2.4rem", fontWeight: 700,
-                                              color: "var(--warm)", lineHeight: 1 } },
-          formatPercent(combined.value, 0)),
-        h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
-          "of farmed-animal suffering alleviated")),
-      h("div", null,
-        h("div", { className: "num", style: { fontSize: "1.3rem", fontWeight: 600,
-                                              lineHeight: 1.2 } },
-          formatPercent(combined.min, 0) + "–" + formatPercent(combined.max, 0)),
-        h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
-          "90% range, across pain-tier ratios and welfare ranges"))),
+    h(RemovedChart, { combined, reforms }),
     h("p", { style: { fontSize: ".95rem" } },
       "That counts every reform above at full, worldwide adoption — cage-free ",
       "rather than furnished cages for hens, since the two replace the same ",
@@ -465,7 +551,7 @@ function App() {
     h(SpeciesSection, { species, state, set }),
     h(CountrySection, { countries, state, set }),
     h(ReformSection, { reforms }),
-    h(BottomLine, { combined, species }),
+    h(BottomLine, { combined, species, reforms }),
     h(Provenance, { anchor: anchorFraction(weights), species }));
 }
 
@@ -473,8 +559,6 @@ function Summary({ species, countries, combined }) {
   const top = (rows, total, n) => rows
     .filter(r => r.name !== "Other countries").slice(0, n)
     .map(r => ({ name: r.name, share: shareOf(r.painYears, total) }));
-  const sp = top([...species.rows].sort((a, b) => b.painYears - a.painYears),
-                 species.total, 3);
   const co = top(countries.rows, countries.total, 3);
   const label = text => h("div", { className: "num", style: { fontSize: ".68rem",
       letterSpacing: ".12em", textTransform: "uppercase", color: "var(--muted)",
@@ -489,7 +573,6 @@ function Summary({ species, countries, combined }) {
                                marginTop: ".2rem" } }, note) : null);
   return h("div", { className: "panel", style: { display: "flex", flexWrap: "wrap",
       gap: "1.2rem 2rem", marginBlock: "1.2rem" } },
-    col("Biggest species", sp),
     col("Biggest countries", co, "excludes shrimp, which has no country split"),
     h("div", { style: { flex: "1 1 12rem" } },
       label("Reforms, fully implemented"),
@@ -501,6 +584,30 @@ function Summary({ species, countries, combined }) {
         formatPercent(combined.max, 0) + ")")));
 }
 
+function SpeciesStack({ species }) {
+  const byKey = Object.fromEntries(species.rows.map(r => [r.key, r]));
+  const others = species.rows.filter(r => !HUED_SPECIES.includes(r.key));
+  const otherValue = others.reduce((a, r) => a + r.painYears, 0);
+  const share = v => formatPercent(shareOf(v, species.total), 0);
+  // Fixed species order, not size order: adjacency is what the colour-blind
+  // check was run on, and a slider must not repaint or reshuffle the stack.
+  const segments = [
+    ...HUED_SPECIES.filter(k => byKey[k]).map(k => ({
+      key: k, name: byKey[k].name, value: byKey[k].painYears, color: speciesColor(k),
+      detail: byKey[k].name + " · " + share(byKey[k].painYears) + " · " +
+              formatPainYears(byKey[k].painYears) + " pain years" })),
+    { key: "other", name: others.map(r => r.name.split(" ")[0]).join(", "),
+      value: otherValue, color: speciesColor("other"),
+      detail: others.map(r => r.name).join(", ") + " · " + share(otherValue) },
+  ];
+  return h("div", { style: { margin: "1.4rem 0 1.2rem" } },
+    h(StackBar, { segments, total: species.total,
+                  label: "Share of the total by species: " +
+                    segments.map(x => x.name + " " + share(x.value)).join(", ") },
+      h(Legend, { items: segments.map(x => ({ key: x.key, name: x.name,
+                                              color: x.color, value: share(x.value) })) })));
+}
+
 function Hero({ total, species, countries, combined }) {
   return h("header", { style: { paddingTop: "3.5rem" } },
     h("div", { className: "num", style: { fontSize: ".7rem", letterSpacing: ".2em",
@@ -510,6 +617,7 @@ function Hero({ total, species, countries, combined }) {
       "Farmed animals endure ",
       h("span", { style: { color: "var(--accent)" } }, formatPainYears(total)),
       " welfare-adjusted pain years, every year."),
+    h(SpeciesStack, { species }),
     h("p", { style: { color: "var(--muted)", maxWidth: "38rem" } },
       "One welfare-adjusted pain year is one year of disabling-level pain at ",
       "human-equivalent intensity. Every figure below comes from one line: ",

@@ -20,6 +20,13 @@
   --ink:var(--c-ink); --paper:var(--c-paper); --panel:var(--c-panel);
   --accent:var(--c-accent); --warm:var(--c-warm);
 
+  /* Data colours: one per species, a separate palette from the five brand
+     colours because nine series cannot be told apart from five hues. Order and
+     steps validated (dataviz validate_palette.js) against both panel surfaces. */
+  --sp-fish:#2a78d6; --sp-broilers:#eb6834; --sp-layers:#1baf7a;
+  --sp-shrimp:#eda100; --sp-pigs:#e87ba4; --sp-ducks:#008300;
+  --sp-other:color-mix(in srgb, var(--c-ink) 40%, var(--c-paper));
+
   --rule:color-mix(in srgb, var(--ink) 14%, transparent);
   --muted:color-mix(in srgb, var(--ink) 75%, transparent);
   --measure:min(100% - 2.5rem, 46rem);
@@ -37,6 +44,9 @@
     --panel:color-mix(in srgb, var(--c-panel) 10%, var(--c-ink));
     --accent:color-mix(in srgb, var(--c-accent) 70%, var(--c-panel));
     --warm:color-mix(in srgb, var(--c-warm) 70%, var(--c-panel));
+    --sp-fish:#3987e5; --sp-broilers:#d95926; --sp-layers:#199e70;
+    --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
+    --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
     color-scheme:dark;
   }
 }
@@ -45,6 +55,9 @@
   --panel:color-mix(in srgb, var(--c-panel) 10%, var(--c-ink));
   --accent:color-mix(in srgb, var(--c-accent) 70%, var(--c-panel));
   --warm:color-mix(in srgb, var(--c-warm) 70%, var(--c-panel));
+  --sp-fish:#3987e5; --sp-broilers:#d95926; --sp-layers:#199e70;
+  --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
+  --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -66,6 +79,24 @@ h2{font-family:var(--disp);font-size:1.4rem;line-height:1.25;
 .tag-proxied{background:color-mix(in srgb,var(--warm) 45%,transparent);color:var(--ink)}
 .tag-author{background:var(--warm);color:var(--paper)}
 .scroll-x{overflow-x:auto}
+/* 100% stacked bar: 2px surface gap between segments, square at the
+   baseline, 4px rounded at the far end. */
+.stack{display:flex;gap:2px;height:24px}
+.stack>div{min-width:2px;flex-basis:0;cursor:pointer;transition:opacity .15s,flex-grow .3s}
+.stack>div:last-child{border-radius:0 4px 4px 0}
+.stack>div:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* 90% interval: an ink line with end caps, drawn over its bar. */
+.whisker,.whisker-key{position:absolute;top:50%;height:2px;margin-top:-1px;
+  background:var(--ink)}
+.whisker::before,.whisker::after,.whisker-key::before,.whisker-key::after{
+  content:"";position:absolute;top:-4px;width:2px;height:10px;background:var(--ink)}
+.whisker::before,.whisker-key::before{left:0}
+.whisker::after,.whisker-key::after{right:0}
+.whisker-key{position:relative;display:inline-block;width:1.4rem;top:0;margin:0}
+.bracket{position:absolute;top:.2rem;height:.35rem;border:2px solid var(--ink);
+  border-top:0}
+.bracket-tick{position:absolute;top:0;width:2px;height:.7rem;margin-left:-1px;
+  background:var(--ink)}
 input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
