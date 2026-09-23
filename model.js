@@ -107,11 +107,13 @@ export function countryTotals(weights, opts = {}) {
   }
   const rows = COUNTRIES.map(row => {
     let painYears = 0;
+    const bySpecies = {};
     for (const [key, col] of Object.entries(COUNTRY_COLS)) {
       if (key === "fish" && !includeFish) continue;
-      painYears += row[col] * (scale[key] ?? 0);
+      bySpecies[key] = row[col] * (scale[key] ?? 0);
+      painYears += bySpecies[key];
     }
-    return { name: row[0], geo: row[1], painYears };
+    return { name: row[0], geo: row[1], painYears, bySpecies };
   }).sort((a, b) => b.painYears - a.painYears);
   return { rows, total: rows.reduce((a, r) => a + r.painYears, 0) };
 }
@@ -158,9 +160,54 @@ export function componentShare(def, weights) {
   return disablingEquivalentHours(PAIN_TRACKS[def.component], weights) / total;
 }
 
+/** Reforms that replace another reform's baseline rather than add to it.
+ *  Furnished cages and cage-free both start from the conventional cage, so a
+ *  combined total counts only cage-free. */
+export const ALTERNATIVE_REFORMS = ["furnished"];
+
+/** Pain years averted by each reform at one set of weights, plus the total
+ *  they are a share of. Separated out so ranges can re-run it per ladder. */
+function avertedAt(weights, opts) {
+  const { rows, total } = speciesTotals(weights, opts);
+  const bySpecies = Object.fromEntries(rows.map(r => [r.key, r.painYears]));
+  const averted = {};
+  for (const def of REFORM_DEFS) {
+    averted[def.key] = (bySpecies[def.species] ?? 0) *
+      componentShare(def, weights) * reformReduction(def, weights);
+  }
+  return { averted, total };
+}
+
+/** Each reform's and the combined share of ALL farmed-animal pain, at the
+ *  current weights and across ROBUSTNESS_LADDERS. The current weights are
+ *  included in the sample so the range always contains the shown value, even
+ *  when independent tier ratios sit off the single-ladder line. */
+function shareRanges(weights, opts) {
+  const samples = [weights, ...ROBUSTNESS_LADDERS.map(l => tierWeights({ ladder: l }))]
+    .map(w => avertedAt(w, opts));
+  const range = pick => {
+    const vals = samples.map(({ averted, total }) =>
+      total > 0 ? pick(averted) / total : 0);
+    return { value: vals[0], min: Math.min(...vals), max: Math.max(...vals) };
+  };
+  const perReform = Object.fromEntries(REFORM_DEFS.map(d =>
+    [d.key, range(a => a[d.key])]));
+  const combined = range(a => REFORM_DEFS
+    .filter(d => !ALTERNATIVE_REFORMS.includes(d.key))
+    .reduce((s, d) => s + a[d.key], 0));
+  return { perReform, combined };
+}
+
+/** The share of all farmed-animal pain that every reform together would
+ *  remove at full adoption, with its range across tier ratios. */
+export function combinedReformShare(weights, opts = {}) {
+  return shareRanges(weights, opts).combined;
+}
+
 export function reformTable(weights, opts = {}) {
   const { rows } = speciesTotals(weights, opts);
   const bySpecies = Object.fromEntries(rows.map(r => [r.key, r.painYears]));
+  const { perReform } = shareRanges(weights, opts);
   return REFORM_DEFS.map(def => {
     const reduction = reformReduction(def, weights);
     const share = componentShare(def, weights);
@@ -168,6 +215,7 @@ export function reformTable(weights, opts = {}) {
       key: def.key, label: def.label, species: def.species, reduction,
       componentShare: share,
       shareOfSpeciesPain: reduction * share,
+      shareOfTotal: perReform[def.key],
       robustness: def.fixedReduction !== undefined
         ? null : reformRobustness(def),
       provenance: def.provenance,
@@ -175,6 +223,8 @@ export function reformTable(weights, opts = {}) {
     };
   });
 }
+
+export const HOURS_PER_YEAR = 24 * 365;
 
 export const LADDER_MIN = 1;
 export const LADDER_MAX = 1000;

@@ -6,7 +6,7 @@ import { tierWeights, exchangeRates, disablingEquivalentHours,
          reformReduction, componentShare, reformRobustness,
          ROBUSTNESS_LADDERS, LADDER_MIN, LADDER_MAX,
          reformTable, DEFAULT_STATE, encodeState, decodeState,
-         formatPainYears, formatPercent } from "../model.js";
+         formatPainYears, formatPercent, combinedReformShare } from "../model.js";
 import { PAIN_TRACKS, REFORM_DEFS } from "../data.js";
 
 const near = (a, b, tol = 1e-6) =>
@@ -314,4 +314,28 @@ test("percentages round to the requested places", () => {
   assert.equal(formatPercent(0.621892, 1), "62.2%");
   assert.equal(formatPercent(0.621892, 0), "62%");
   assert.equal(formatPercent(0.0058, 2), "0.58%");
+});
+
+test("each reform's share of total pain carries a range containing its value", () => {
+  for (const r of reformTable(tierWeights({ ladder: 30 }))) {
+    const { value, min, max } = r.shareOfTotal;
+    assert.ok(min <= value && value <= max, r.key);
+  }
+});
+
+test("combined reforms skip furnished cages, the alternative to cage-free", () => {
+  const w = tierWeights({ ladder: 30 });
+  const t = speciesTotals(w).total;
+  const sum = reformTable(w).filter(r => r.key !== "furnished")
+    .reduce((a, r) => a + r.painYearsAverted, 0);
+  const c = combinedReformShare(w);
+  near(c.value, sum / t);
+  near(c.value, 0.2964, 1e-3);
+  assert.ok(c.min <= c.value && c.value <= c.max);
+});
+
+test("a country's species split sums to its total", () => {
+  for (const row of countryTotals(tierWeights({ ladder: 30 })).rows) {
+    near(Object.values(row.bySpecies).reduce((a, b) => a + b, 0), row.painYears, 1e-3);
+  }
 });
