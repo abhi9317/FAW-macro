@@ -4,7 +4,7 @@ import {
   speciesTotals, countryTotals, reformTable, combinedReformShare, reformUncertainty, anchorFraction, ALTERNATIVE_REFORMS,
   formatPainYears, formatPercent, LADDER_MIN, LADDER_MAX, HOURS_PER_YEAR,
 } from "./model.js";
-import { PAIN_TRACKS, SPECIES, WELFARE_RANGE_INTERVALS } from "./data.js";
+import { PAIN_TRACKS, SPECIES, WELFARE_RANGES, WELFARE_RANGE_INTERVALS } from "./data.js";
 
 const SPECIES_NAME = Object.fromEntries(SPECIES.map(s => [s.key, s.name]));
 
@@ -125,7 +125,80 @@ function TierControl({ state, set }) {
       state.advanced ? "Use a single ratio" : "Set each ratio separately"));
 }
 
+// RP species the page actually uses, and which page species borrow each.
+const WR_PLOT = [
+  { wrKey: "pig", name: "Pigs", uses: "pigs, cattle, sheep" },
+  { wrKey: "chicken", name: "Chickens", uses: "broilers, layers, ducks, turkeys" },
+  { wrKey: "carp", name: "Carp", uses: "farmed fish" },
+  { wrKey: "shrimp", name: "Shrimp", uses: "shrimp" },
+];
+const WR_AXIS_MAX = 1.2;
+
+function WelfareRangePlot({ rows }) {
+  const [hover, setHover] = useState(null);
+  const at = v => (Math.min(v, WR_AXIS_MAX) / WR_AXIS_MAX) * 100 + "%";
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+  const plotRows = WR_PLOT.map(p => {
+    const [lo, hi] = WELFARE_RANGE_INTERVALS[p.wrKey];
+    const mid = WELFARE_RANGES[p.wrKey];
+    // Reader-set values for any species borrowing this range, if they differ.
+    const set = [...new Set(rows.filter(r => r.wrKey === p.wrKey && r.welfareRange !== mid)
+                                .map(r => r.welfareRange))];
+    return { ...p, lo, hi, mid, set,
+             detail: `${p.name}: median ${mid.toFixed(3)}, 90% interval ` +
+                     `${lo.toFixed(3)}–${hi.toFixed(3)} · used for ${p.uses}` };
+  });
+  const hovered = plotRows.find(r => r.wrKey === hover);
+  return h("div", { className: "panel", style: { marginBottom: "1rem" } },
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: ".3rem 1rem",
+                        fontSize: ".75rem", color: "var(--muted)", marginBottom: ".6rem" } },
+      h("span", { style: { display: "inline-flex", alignItems: "center", gap: ".35rem" } },
+        h("span", { className: "wr-dot", style: { position: "static", margin: 0 } }),
+        "median"),
+      h("span", { style: { display: "inline-flex", alignItems: "center", gap: ".35rem" } },
+        h("span", { className: "wr-line", style: { position: "static", display: "inline-block",
+                                                   width: "1.4rem", margin: 0 } }),
+        "90% interval (5th–95th percentile)"),
+      plotRows.some(r => r.set.length)
+        ? h("span", { style: { display: "inline-flex", alignItems: "center", gap: ".35rem" } },
+            h("span", { className: "wr-set", style: { position: "static", margin: 0 } }),
+            "your setting")
+        : null),
+    ...plotRows.map(r => h("div", { key: r.wrKey, tabIndex: 0, title: r.detail,
+        onMouseEnter: () => setHover(r.wrKey), onMouseLeave: () => setHover(null),
+        onFocus: () => setHover(r.wrKey), onBlur: () => setHover(null),
+        onClick: () => setHover(r.wrKey),
+        style: { display: "grid", gridTemplateColumns: "5.5rem 1fr", gap: ".8rem",
+                 alignItems: "center", padding: ".45rem 0", cursor: "default" } },
+      h("div", null,
+        h("div", { style: { fontSize: ".9rem", fontWeight: 500 } }, r.name),
+        h("div", { className: "num", style: { fontSize: ".75rem", color: "var(--muted)" } },
+          r.mid.toFixed(3))),
+      h("div", { className: "wr-track" },
+        ...ticks.map(t => h("span", { key: t, className: "wr-grid" + (t === 1 ? " human" : ""),
+                                      style: { left: at(t) } })),
+        h("span", { className: "wr-line", style: { left: at(r.lo),
+                    width: `calc(${at(r.hi)} - ${at(r.lo)})` } }),
+        h("span", { className: "wr-dot", style: { left: at(r.mid) } }),
+        ...r.set.map(v => h("span", { key: v, className: "wr-set", style: { left: at(v) } }))))),
+    // Axis: same grid columns so ticks sit under the plot, not the labels.
+    h("div", { style: { display: "grid", gridTemplateColumns: "5.5rem 1fr", gap: ".8rem" } },
+      h("span"),
+      h("div", { className: "num", style: { position: "relative", height: "1.1rem",
+                                            fontSize: ".7rem", color: "var(--muted)" } },
+        ...[0, 0.5, 1].map(t => h("span", { key: t, style: { position: "absolute", left: at(t),
+            transform: t === 0 ? "none" : "translateX(-50%)", whiteSpace: "nowrap" } },
+          t === 1 ? "1 (human)" : String(t))))),
+    h("div", { "aria-live": "polite", className: "num", style: { minHeight: "1.2rem",
+        fontSize: ".75rem", color: "var(--muted)", marginTop: ".4rem" } },
+      hovered ? hovered.detail : ""));
+}
+
 function SpeciesAssumptions({ state, set, rows }) {
+  // Open by default only when the reader (or a shared link) has changed
+  // something here, so custom settings are never hidden.
+  const [open, setOpen] = useState(() =>
+    Object.keys(state.welfareRanges).length > 0 || Object.keys(state.multiples).length > 0);
   return h(Fragment, null,
     h("h3", { style: { fontFamily: "var(--disp)", fontSize: "1.15rem", fontWeight: 600,
                        margin: "2rem 0 .4rem" } }, "Welfare ranges"),
@@ -134,8 +207,15 @@ function SpeciesAssumptions({ state, set, rows }) {
       "suffer compared with a human, where ", h("strong", { className: "num" }, "1.0"),
       " is a human. At ", h("strong", { className: "num" }, "0.33"), ", an hour of a ",
       "chicken's disabling pain counts as a third of an hour of a human's. ",
-      "Defaults are Rethink Priorities' median estimates; drag any of them."),
-    h("div", { className: "panel" },
+      "Rethink Priorities' estimates are very uncertain, and not evenly so. ",
+      "Shrimp's median is low, but its 90% interval reaches past a human's:"),
+    h(WelfareRangePlot, { rows }),
+    h("button", { onClick: () => setOpen(!open), "aria-expanded": open,
+        style: { cursor: "pointer", fontFamily: "var(--mono)", fontSize: ".8rem",
+          padding: ".4rem .8rem", borderRadius: ".3rem", border: "1px solid var(--rule)",
+          background: "none", color: "var(--ink)", marginBottom: ".8rem" } },
+      (open ? "▾ " : "▸ ") + "Adjust welfare ranges and species assumptions"),
+    !open ? null : h("div", { className: "panel" },
     ...rows.map(r => h("div", { key: r.key, style: {
         display: "grid", gridTemplateColumns: "minmax(5.5rem,1fr) minmax(0,2fr) auto",
         gap: ".8rem", alignItems: "center", padding: ".6rem 0",
@@ -181,6 +261,8 @@ function SpeciesAssumptions({ state, set, rows }) {
 }
 
 const HEN_TIERS = ["Excruciating", "Disabling", "Hurtful", "Annoying"];
+// Ordinal: one hue, most intense = strongest contrast with the surface.
+const TIER_COLOR = ["var(--tier-e)", "var(--tier-d)", "var(--tier-h)", "var(--tier-a)"];
 
 function WorkedHen({ weights }) {
   const track = PAIN_TRACKS.layers_conventional_cage;
@@ -188,12 +270,29 @@ function WorkedHen({ weights }) {
   const total = de.reduce((a, b) => a + b, 0);
   const rawTotal = track.reduce((a, b) => a + b, 0);
   const w = n => n >= 1 ? n.toFixed(n >= 10 ? 0 : 1) : "1/" + Math.round(1 / n);
+  const hrs = v => v < 1 ? v.toFixed(2) : Math.round(v).toLocaleString();
+  // One scale for both bars, so the weighted bar's shortness IS the point.
+  const scale = Math.max(rawTotal, total);
+  const segs = vals => HEN_TIERS.map((name, i) => ({
+    key: name, name, value: vals[i], color: TIER_COLOR[i],
+    detail: name + " · " + hrs(vals[i]) + " h" }));
+  const barLabel = (text, value) => h("div", { style: { display: "flex",
+      justifyContent: "space-between", gap: ".6rem", fontSize: ".82rem",
+      marginBottom: ".3rem" } },
+    h("span", null, text),
+    h("strong", { className: "num" }, Math.round(value).toLocaleString() + " h"));
 
   return h("div", { className: "panel", style: { marginBottom: "1rem" } },
-    h("div", { style: { fontSize: ".9rem", marginBottom: ".7rem" } },
+    h("div", { style: { fontSize: ".9rem", marginBottom: ".9rem" } },
       "Over her life, one caged laying hen spends ", h("span", { className: "num" },
         Math.round(rawTotal).toLocaleString()), " hours in some kind of pain. ",
-      "Those hours are not equally bad:"),
+      "Those hours are not equally bad, so each is weighted by its intensity:"),
+    barLabel("Hours in pain", rawTotal),
+    h(StackBar, { segments: segs(track), total: scale,
+                  label: `Raw hours in pain: ${Math.round(rawTotal)}` }),
+    barLabel("Weighted by intensity (disabling-equivalent)", total),
+    h(StackBar, { segments: segs(de), total: scale,
+                  label: `Weighted hours: ${Math.round(total)}` }),
     h("div", { className: "scroll-x" },
       h("table", { style: { width: "100%", borderCollapse: "collapse",
                             fontSize: ".82rem" } },
@@ -204,7 +303,9 @@ function WorkedHen({ weights }) {
               borderBottom: "1px solid var(--rule)" } }, c)))),
         h("tbody", null, ...HEN_TIERS.map((name, i) =>
           h("tr", { key: name },
-            h("td", { style: { padding: ".25rem .4rem" } }, name),
+            h("td", { style: { padding: ".25rem .4rem" } },
+              h("span", { style: { display: "inline-flex", alignItems: "center",
+                                   gap: ".4rem" } }, h(Swatch, { color: TIER_COLOR[i] }), name)),
             h("td", { className: "num", style: { textAlign: "right", padding: ".25rem .4rem" } },
               track[i] < 1 ? track[i].toFixed(2) : Math.round(track[i]).toLocaleString()),
             h("td", { className: "num", style: { textAlign: "right", padding: ".25rem .4rem",
@@ -239,14 +340,13 @@ function SpeciesSection({ species, state, set }) {
             background: state.includeShrimp === v ? "var(--accent)" : "transparent",
             color: state.includeShrimp === v ? "var(--paper)" : "var(--ink)" } }, label))),
     h("div", { className: "panel" },
-      ...rows.map((r, i) => h("div", { key: r.key, style: {
-          display: "grid", gridTemplateColumns: "minmax(6rem,9rem) 1fr auto auto",
-          gap: ".6rem", alignItems: "center", padding: ".3rem 0" } },
-        h("span", { style: { fontSize: ".9rem" } }, r.name),
-        h(Bar, { value: r.painYears, max, color: speciesColor(r.key) }),
-        h("span", { className: "num", style: { fontSize: ".78rem" } },
+      ...rows.map(r => h("div", { key: r.key, className: "sp-row" },
+        h("span", { className: "sp-name" }, r.name),
+        h("div", { className: "sp-bar" },
+          h(Bar, { value: r.painYears, max, color: speciesColor(r.key) })),
+        h("span", { className: "num sp-pct" },
           formatPercent(shareOf(r.painYears, species.total), 1)),
-        h(Tag, { kind: r.provenance })))));
+        h("span", { className: "sp-tag" }, h(Tag, { kind: r.provenance }))))));
 }
 
 function CountryBreakdown({ row }) {

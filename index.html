@@ -26,6 +26,8 @@
   --sp-fish:#2a78d6; --sp-broilers:#eb6834; --sp-layers:#1baf7a;
   --sp-shrimp:#eda100; --sp-pigs:#e87ba4; --sp-ducks:#008300;
   --sp-other:color-mix(in srgb, var(--c-ink) 40%, var(--c-paper));
+  /* Pain tiers: one-hue ordinal ramp (OKLCH hue 55), Excruciating darkest. */
+  --tier-e:#6a2500; --tier-d:#894100; --tier-h:#a95f23; --tier-a:#ca7d44;
 
   --rule:color-mix(in srgb, var(--ink) 14%, transparent);
   --muted:color-mix(in srgb, var(--ink) 75%, transparent);
@@ -47,6 +49,7 @@
     --sp-fish:#3987e5; --sp-broilers:#d95926; --sp-layers:#199e70;
     --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
     --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
+    --tier-e:#f9b379; --tier-d:#d7935a; --tier-h:#b6753b; --tier-a:#965719;
     color-scheme:dark;
   }
 }
@@ -58,6 +61,7 @@
   --sp-fish:#3987e5; --sp-broilers:#d95926; --sp-layers:#199e70;
   --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
   --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
+  --tier-e:#f9b379; --tier-d:#d7935a; --tier-h:#b6753b; --tier-a:#965719;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -93,6 +97,26 @@ h2{font-family:var(--disp);font-size:1.4rem;line-height:1.25;
 .whisker::before,.whisker-key::before{left:0}
 .whisker::after,.whisker-key::after{right:0}
 .whisker-key{position:relative;display:inline-block;width:1.4rem;top:0;margin:0}
+/* Species rows: one line on wide screens; on phones the bar drops to its own
+   line so the provenance tag doesn't squeeze it to nothing. */
+.sp-row{display:grid;grid-template-columns:minmax(6rem,9rem) 1fr auto auto;
+  grid-template-areas:"name bar pct tag";gap:.3rem .6rem;align-items:center;padding:.3rem 0}
+.sp-name{grid-area:name;font-size:.9rem}.sp-bar{grid-area:bar}
+.sp-pct{grid-area:pct;font-size:.78rem;text-align:right}.sp-tag{grid-area:tag}
+@media (max-width:520px){
+  .sp-row{grid-template-columns:1fr auto auto;
+    grid-template-areas:"name pct tag" "bar bar bar";padding:.4rem 0}
+}
+/* Welfare-range dot plot. */
+.wr-track{position:relative;height:1.4rem}
+.wr-grid{position:absolute;top:0;bottom:0;width:1px;background:var(--rule)}
+.wr-grid.human{background:color-mix(in srgb,var(--ink) 45%,transparent)}
+.wr-line{position:absolute;top:50%;height:2px;margin-top:-1px;background:var(--accent);
+  border-radius:1px}
+.wr-dot,.wr-set{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;
+  border-radius:50%;display:inline-block;box-sizing:border-box}
+.wr-dot{background:var(--accent);box-shadow:0 0 0 2px var(--panel)}
+.wr-set{border:2px solid var(--warm);background:var(--panel)}
 .bracket{position:absolute;top:.2rem;height:.35rem;border:2px solid var(--ink);
   border-top:0}
 .bracket-tick{position:absolute;top:0;width:2px;height:.7rem;margin-left:-1px;
