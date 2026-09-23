@@ -435,12 +435,18 @@ function App() {
   const combined = useMemo(() => combinedReformShare(weights, opts), [weights, state]);
 
   return h(Fragment, null,
-    h(Hero, { total: species.total, species, countries, combined, reset },
-      // The total swings 35x across the plausible range of r, so the control
-      // sits WITH the headline. Burying it below would overstate confidence.
-      h(TierControl, { state, set })),
+    h(Hero, { total: species.total, species, countries, combined }),
     h(Section, { n: "00", kicker: "Assumptions",
                  heading: "The two things you can change" },
+      h("button", { onClick: reset, style: { marginBottom: ".8rem", cursor: "pointer",
+          fontFamily: "var(--mono)", fontSize: ".8rem", padding: ".4rem .8rem",
+          borderRadius: ".3rem", border: "1px solid var(--rule)",
+          background: "none", color: "var(--warm)" } }, "Reset assumptions"),
+      h("h3", { style: { fontFamily: "var(--disp)", fontSize: "1.15rem", fontWeight: 600,
+                         margin: "1rem 0 .4rem" } }, "How pain intensities compare"),
+      // The total swings 35x across the plausible range of r, so this control
+      // opens the assumptions rather than sitting below the worked example.
+      h(TierControl, { state, set }),
       h(WorkedHen, { weights }),
       h(SpeciesAssumptions, { state, set, rows: species.rows })),
     h(SpeciesSection, { species, state, set }),
@@ -482,7 +488,7 @@ function Summary({ species, countries, combined }) {
         formatPercent(combined.max, 0) + ")")));
 }
 
-function Hero({ total, species, countries, combined, reset, children }) {
+function Hero({ total, species, countries, combined }) {
   return h("header", { style: { paddingTop: "3.5rem" } },
     h("div", { className: "num", style: { fontSize: ".7rem", letterSpacing: ".2em",
         textTransform: "uppercase", color: "var(--accent)", marginBottom: "1rem" } },
@@ -497,12 +503,7 @@ function Hero({ total, species, countries, combined, reset, children }) {
       h("strong", { style: { color: "var(--ink)" } },
         "animals alive x intensity-weighted hours of pain x welfare range"),
       ". Change either assumption and the whole page re-settles."),
-    h(Summary, { species, countries, combined }),
-    h("button", { onClick: reset, style: { marginTop: "1rem", cursor: "pointer",
-        fontFamily: "var(--mono)", fontSize: ".8rem", padding: ".4rem .8rem",
-        borderRadius: ".3rem", border: "1px solid var(--rule)",
-        background: "none", color: "var(--warm)" } }, "Reset assumptions"),
-    children);
+    h(Summary, { species, countries, combined }));
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(h(App));
