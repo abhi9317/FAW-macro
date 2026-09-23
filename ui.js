@@ -5,6 +5,7 @@ import {
   formatPainYears, formatPercent, LADDER_MIN, LADDER_MAX, HOURS_PER_YEAR,
 } from "./model.js";
 import { PAIN_TRACKS, SPECIES, WELFARE_RANGES, WELFARE_RANGE_INTERVALS } from "./data.js";
+import { WORLD } from "./map.js";
 
 const SPECIES_NAME = Object.fromEntries(SPECIES.map(s => [s.key, s.name]));
 
@@ -13,7 +14,34 @@ const SPECIES_NAME = Object.fromEntries(SPECIES.map(s => [s.key, s.name]));
 // NaN% in headings and panels across every section.
 const shareOf = (a, b) => (b > 0 ? a / b : 0);
 
-const { createElement: h, useState, useMemo, useEffect, Fragment } = React;
+const { createElement: h, useState, useMemo, useEffect, useRef, Fragment } = React;
+
+const REDUCED_MOTION = typeof matchMedia === "function" &&
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Eases a displayed number toward its target over ~350ms, so a slider drag
+ *  reads as the number moving rather than jumping. Off under reduced motion. */
+function useTween(target, ms = 350) {
+  const [shown, setShown] = useState(target);
+  const from = useRef(target);
+  useEffect(() => {
+    // Hidden tabs pause animation frames; jump rather than show a stale value.
+    if (REDUCED_MOTION || document.hidden || !Number.isFinite(target)) {
+      from.current = target; setShown(target); return;
+    }
+    const start = performance.now(), a = from.current;
+    let raf;
+    const step = now => {
+      const t = Math.min(1, (now - start) / ms);
+      const v = a + (target - a) * (1 - Math.pow(1 - t, 3));
+      from.current = v; setShown(v);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return shown;
+}
 
 const Tag = ({ kind }) => h("span", {
   className: "tag tag-" + (kind === "measured" ? "measured"
@@ -356,6 +384,45 @@ function CountryBreakdown({ row }) {
         formatPercent(shareOf(v, row.painYears), 1)))));
 }
 
+// Choropleth bins by share of the country total. Sequential green ramp,
+// validated in both modes; countries outside the source table are "no data".
+const MAP_BINS = [0.005, 0.01, 0.02, 0.05, 0.10];
+const MAP_BIN_LABELS = ["<0.5%", "0.5–1%", "1–2%", "2–5%", "5–10%", "≥10%"];
+const mapBin = share => MAP_BINS.filter(t => share >= t).length;
+
+function WorldMap({ countries, selected, onSelect }) {
+  const [hover, setHover] = useState(null);
+  const byName = Object.fromEntries(countries.rows.map(r => [r.name, r]));
+  const share = r => shareOf(r.painYears, countries.total);
+  const rank = Object.fromEntries(countries.rows
+    .filter(r => r.name !== "Other countries").map((r, i) => [r.name, i + 1]));
+  const hovered = hover && byName[hover];
+  return h("div", { className: "panel", style: { marginBottom: "1rem" } },
+    h("svg", { viewBox: WORLD.viewBox, className: "world", role: "img",
+        "aria-label": "World map shaded by each country's share of farmed-animal " +
+                      "suffering; the list below gives the same figures." },
+      ...WORLD.countries.map((c, i) => {
+        const row = c.name && byName[c.name];
+        const fill = row ? `var(--map-${mapBin(share(row))})` : "var(--map-none)";
+        return h("path", { key: i, d: c.d, fill,
+          className: (row ? "has-data" : "") + (c.name && c.name === selected ? " sel" : ""),
+          onMouseEnter: row ? () => setHover(c.name) : undefined,
+          onMouseLeave: row ? () => setHover(null) : undefined,
+          onClick: row ? () => onSelect(c.name) : undefined },
+          h("title", null, row ? `${c.name}: ${formatPercent(share(row), 1)}` : c.label + ": no data"));
+      })),
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: ".3rem .9rem",
+                        fontSize: ".75rem", color: "var(--muted)", marginTop: ".5rem" } },
+      ...MAP_BIN_LABELS.map((l, i) => h("span", { key: l, style: { display: "inline-flex",
+          alignItems: "center", gap: ".3rem" } }, h(Swatch, { color: `var(--map-${i})` }), l)),
+      h("span", { style: { display: "inline-flex", alignItems: "center", gap: ".3rem" } },
+        h(Swatch, { color: "var(--map-none)" }), "no data")),
+    h("div", { "aria-live": "polite", className: "tnum", style: { minHeight: "1.2rem",
+        fontSize: ".78rem", color: "var(--muted)", marginTop: ".35rem" } },
+      hovered ? `${hovered.name} · ${formatPercent(share(hovered), 1)} of the country total` +
+                ` · #${rank[hovered.name]} of ${countries.rows.length - 1}` : ""));
+}
+
 function CountrySection({ countries, state, set }) {
   const rows = countries.rows.slice(0, 14);
   const max = Math.max(...rows.map(r => r.painYears), 1);
@@ -368,7 +435,14 @@ function CountrySection({ countries, state, set }) {
         h("button", { key: label, onClick: () => set({ includeFish: v }),
           "aria-pressed": state.includeFish === v }, label))),
     h("p", { style: { marginTop: 0, fontSize: ".85rem", color: "var(--muted)" } },
-      "Click a country to see which species its suffering comes from."),
+      "Click a country on the map or in the list to see which species its ",
+      "suffering comes from."),
+    h(WorldMap, { countries, selected: open,
+                  onSelect: name => setOpen(open === name ? null : name) }),
+    // Countries outside the top 14 have no list row to expand into.
+    open && !rows.some(r => r.name === open) && countries.rows.find(r => r.name === open)
+      ? h(CountryBreakdown, { row: countries.rows.find(r => r.name === open) })
+      : null,
     h("div", { className: "panel scroll-x" },
       ...rows.map(r => h(Fragment, { key: r.name },
         h("button", { onClick: () => setOpen(open === r.name ? null : r.name),
@@ -434,6 +508,7 @@ function ReformSection({ reforms }) {
 const SHORT_REFORM = { bcc: "Broilers: BCC", cagefree: "Hens: cage-free" };
 
 function RemovedChart({ combined, reforms }) {
+  const shownCombined = useTween(combined.value);
   // Only broilers' and layers' reforms get their own hue: every other reform
   // is under 1.5% and folds into one grey segment, which also keeps pigs'
   // pink away from the hens' aqua (too close for deuteranopes in dark mode).
@@ -460,7 +535,7 @@ function RemovedChart({ combined, reforms }) {
                         flexWrap: "wrap", marginBottom: ".6rem" } },
       h("span", { className: "fig", style: { fontSize: "2.4rem", fontWeight: 700,
                                              lineHeight: 1 } },
-        formatPercent(combined.value, 0)),
+        formatPercent(shownCombined, 0)),
       h("span", { style: { fontSize: ".85rem", color: "var(--muted)" } },
         "of farmed-animal suffering removed · 90% range ",
         h("span", { className: "tnum", style: { color: "var(--ink)" } },
@@ -637,6 +712,7 @@ function App() {
 }
 
 function Summary({ species, countries, combined }) {
+  const shownCombined = useTween(combined.value);
   const top = (rows, total, n) => rows
     .filter(r => r.name !== "Other countries").slice(0, n)
     .map(r => ({ name: r.name, share: shareOf(r.painYears, total) }));
@@ -658,7 +734,7 @@ function Summary({ species, countries, combined }) {
       label("Reforms, fully implemented"),
       h("div", { className: "fig", style: { fontSize: "1.6rem", fontWeight: 700,
                                             color: "var(--warm)", lineHeight: 1.1 } },
-        formatPercent(combined.value, 0)),
+        formatPercent(shownCombined, 0)),
       h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
         "of the total removed (90% range " + formatPercent(combined.min, 0) + "–" +
         formatPercent(combined.max, 0) + ")")));
@@ -689,12 +765,13 @@ function SpeciesStack({ species }) {
 }
 
 function Hero({ total, species, countries, combined }) {
+  const shownTotal = useTween(total);
   return h("header", { style: { paddingTop: "3.5rem" } },
     h("div", { className: "kicker", style: { marginBottom: "1rem" } },
       "The scale of farmed-animal suffering"),
     h("h1", null,
       "Farmed animals endure ",
-      h("span", { style: { color: "var(--accent)" } }, formatPainYears(total)),
+      h("span", { style: { color: "var(--accent)" } }, formatPainYears(shownTotal)),
       " welfare-adjusted pain years, every year."),
     h(SpeciesStack, { species }),
     h("p", { style: { color: "var(--muted)", maxWidth: "38rem" } },

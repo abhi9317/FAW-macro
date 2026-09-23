@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The scale of farmed-animal suffering</title>
 <meta name="description" content="How much farmed-animal suffering is there, and how much do welfare reforms reduce? Change the assumptions and watch the answer move.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="The scale of farmed-animal suffering">
+<meta property="og:description" content="How much farmed-animal suffering is there, and how much do welfare reforms reduce? Change the assumptions and watch the answer move.">
+<meta property="og:url" content="https://abhi9317.github.io/FAW-macro/">
+<meta property="og:image" content="https://abhi9317.github.io/FAW-macro/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -28,6 +36,10 @@
   --sp-other:color-mix(in srgb, var(--c-ink) 40%, var(--c-paper));
   /* Pain tiers: one-hue ordinal ramp (OKLCH hue 55), Excruciating darkest. */
   --tier-e:#6a2500; --tier-d:#894100; --tier-h:#a95f23; --tier-a:#ca7d44;
+  /* Map: sequential one-hue green (OKLCH hue 155), small share -> large. */
+  --map-0:#569e71; --map-1:#3f875c; --map-2:#267147; --map-3:#065b32;
+  --map-4:#00461f; --map-5:#00320c;
+  --map-none:color-mix(in srgb, var(--paper) 55%, var(--panel));
 
   --rule:color-mix(in srgb, var(--ink) 14%, transparent);
   --muted:color-mix(in srgb, var(--ink) 75%, transparent);
@@ -50,6 +62,7 @@
     --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
     --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
     --tier-e:#f9b379; --tier-d:#d7935a; --tier-h:#b6753b; --tier-a:#965719;
+    --map-0:#307a4f; --map-1:#4a9266; --map-2:#62ab7d; --map-3:#7bc495; --map-4:#95deae; --map-5:#aef9c8;
     color-scheme:dark;
   }
 }
@@ -62,6 +75,7 @@
   --sp-shrimp:#c98500; --sp-pigs:#d55181; --sp-ducks:#008300;
   --sp-other:color-mix(in srgb, var(--c-panel) 45%, var(--c-ink));
   --tier-e:#f9b379; --tier-d:#d7935a; --tier-h:#b6753b; --tier-a:#965719;
+  --map-0:#307a4f; --map-1:#4a9266; --map-2:#62ab7d; --map-3:#7bc495; --map-4:#95deae; --map-5:#aef9c8;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -122,6 +136,11 @@ section{padding-top:4.5rem}
   .sp-row{grid-template-columns:1fr auto auto;
     grid-template-areas:"name pct tag" "bar bar bar";padding:.4rem 0}
 }
+/* World map: a thin panel-coloured border separates neighbours. */
+.world{display:block;width:100%;height:auto}
+.world path{stroke:var(--panel);stroke-width:.6;stroke-linejoin:round}
+.world path.has-data{cursor:pointer}
+.world path.has-data:hover,.world path.sel{stroke:var(--ink);stroke-width:1.2}
 /* Welfare-range dot plot. */
 .wr-track{position:relative;height:1.4rem}
 .wr-grid{position:absolute;top:0;bottom:0;width:1px;background:var(--rule)}

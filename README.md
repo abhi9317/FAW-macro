@@ -35,6 +35,9 @@ the figures in `docs/superpowers/specs/`.
 | `model.js` | The engine |
 | `ui.js` | React rendering |
 | `scripts/extract_data.py` | Regenerates `data.js` |
+| `map.js` | Generated world outlines — do not edit by hand |
+| `scripts/build_map.mjs` | Regenerates `map.js` (instructions in the file) |
+| `og.png` | Social-card image; regenerate with `node scripts/og_figures.mjs \| python3 scripts/make_og.py` |
 
 ## Refreshing the data
 
