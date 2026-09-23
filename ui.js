@@ -55,7 +55,7 @@ function StackBar({ segments, total, label, children }) {
         style: { flexGrow: x.value / total, background: x.color,
                  opacity: hover && hover !== x.key ? 0.55 : 1 } }))),
     children,
-    h("div", { "aria-live": "polite", className: "num", style: { minHeight: "1.2rem",
+    h("div", { "aria-live": "polite", className: "tnum", style: { minHeight: "1.2rem",
         fontSize: ".75rem", color: "var(--muted)", marginTop: ".35rem" } },
       seg ? seg.detail : ""));
 }
@@ -66,7 +66,7 @@ const Legend = ({ items }) =>
     ...items.map(i => h("span", { key: i.key, style: { display: "inline-flex",
         alignItems: "center", gap: ".35rem" } },
       h(Swatch, { color: i.color }), i.name,
-      i.value != null ? h("span", { className: "num", style: { color: "var(--muted)" } },
+      i.value != null ? h("span", { className: "tnum", style: { color: "var(--muted)" } },
         i.value) : null)));
 
 /** Bar plus a 90%-interval whisker, on a shared scale. */
@@ -79,10 +79,8 @@ function RangeBar({ value, min, max, scaleMax, color }) {
 }
 
 const Section = ({ n, kicker, heading, children }) =>
-  h("section", { style: { paddingTop: "3rem" } },
-    h("div", { className: "num", style: { fontSize: ".7rem", letterSpacing: ".15em",
-        textTransform: "uppercase", color: "var(--accent)", marginBottom: ".4rem" } },
-      n + " · " + kicker),
+  h("section", null,
+    h("div", { className: "kicker" }, n + " · " + kicker),
     h("h2", null, heading),
     children);
 
@@ -94,7 +92,7 @@ function TierControl({ state, set }) {
   const fmt = n => n >= 1000 ? Math.round(n).toLocaleString() : n.toFixed(n < 10 ? 1 : 0);
 
   return h("div", { className: "panel", style: { marginBlock: "1rem" } },
-    h("div", { className: "num", style: { fontSize: ".95rem", lineHeight: 1.7,
+    h("div", { className: "tnum", style: { fontSize: ".95rem", lineHeight: 1.7,
                                           marginBottom: ".8rem" } },
       h("strong", null, "1 hour Excruciating"), " = ",
       h("strong", { style: { color: "var(--accent)" } }, fmt(r.eToD)), " hours Disabling = ",
@@ -117,11 +115,8 @@ function TierControl({ state, set }) {
           h(Slider, { value: state.ladder, min: LADDER_MIN, max: LADDER_MAX, step: 0.5,
                       label: "Pain tier ratio",
                       onChange: v => set({ ladder: v, eOverD: v, dOverH: v, hOverA: v }) })),
-    h("button", { onClick: () => set({ advanced: !state.advanced }),
-                  style: { marginTop: ".6rem", fontSize: ".8rem", cursor: "pointer",
-                           background: "none", border: "1px solid var(--rule)",
-                           borderRadius: ".3rem", padding: ".25rem .6rem",
-                           color: "var(--ink)", fontFamily: "var(--mono)" } },
+    h("button", { onClick: () => set({ advanced: !state.advanced }), className: "btn",
+                  style: { marginTop: ".6rem" } },
       state.advanced ? "Use a single ratio" : "Set each ratio separately"));
 }
 
@@ -172,7 +167,7 @@ function WelfareRangePlot({ rows }) {
                  alignItems: "center", padding: ".45rem 0", cursor: "default" } },
       h("div", null,
         h("div", { style: { fontSize: ".9rem", fontWeight: 500 } }, r.name),
-        h("div", { className: "num", style: { fontSize: ".75rem", color: "var(--muted)" } },
+        h("div", { className: "tnum", style: { fontSize: ".75rem", color: "var(--muted)" } },
           r.mid.toFixed(3))),
       h("div", { className: "wr-track" },
         ...ticks.map(t => h("span", { key: t, className: "wr-grid" + (t === 1 ? " human" : ""),
@@ -184,12 +179,12 @@ function WelfareRangePlot({ rows }) {
     // Axis: same grid columns so ticks sit under the plot, not the labels.
     h("div", { style: { display: "grid", gridTemplateColumns: "5.5rem 1fr", gap: ".8rem" } },
       h("span"),
-      h("div", { className: "num", style: { position: "relative", height: "1.1rem",
+      h("div", { className: "tnum", style: { position: "relative", height: "1.1rem",
                                             fontSize: ".7rem", color: "var(--muted)" } },
         ...[0, 0.5, 1].map(t => h("span", { key: t, style: { position: "absolute", left: at(t),
             transform: t === 0 ? "none" : "translateX(-50%)", whiteSpace: "nowrap" } },
           t === 1 ? "1 (human)" : String(t))))),
-    h("div", { "aria-live": "polite", className: "num", style: { minHeight: "1.2rem",
+    h("div", { "aria-live": "polite", className: "tnum", style: { minHeight: "1.2rem",
         fontSize: ".75rem", color: "var(--muted)", marginTop: ".4rem" } },
       hovered ? hovered.detail : ""));
 }
@@ -204,16 +199,14 @@ function SpeciesAssumptions({ state, set, rows }) {
                        margin: "2rem 0 .4rem" } }, "Welfare ranges"),
     h("p", { style: { marginTop: 0, fontSize: ".95rem" } },
       "A ", h("strong", null, "welfare range"), " is how intensely an animal can ",
-      "suffer compared with a human, where ", h("strong", { className: "num" }, "1.0"),
-      " is a human. At ", h("strong", { className: "num" }, "0.33"), ", an hour of a ",
+      "suffer compared with a human, where ", h("strong", { className: "tnum" }, "1.0"),
+      " is a human. At ", h("strong", { className: "tnum" }, "0.33"), ", an hour of a ",
       "chicken's disabling pain counts as a third of an hour of a human's. ",
       "Rethink Priorities' estimates are very uncertain, and not evenly so. ",
       "Shrimp's median is low, but its 90% interval reaches past a human's:"),
     h(WelfareRangePlot, { rows }),
-    h("button", { onClick: () => setOpen(!open), "aria-expanded": open,
-        style: { cursor: "pointer", fontFamily: "var(--mono)", fontSize: ".8rem",
-          padding: ".4rem .8rem", borderRadius: ".3rem", border: "1px solid var(--rule)",
-          background: "none", color: "var(--ink)", marginBottom: ".8rem" } },
+    h("button", { onClick: () => setOpen(!open), "aria-expanded": open, className: "btn",
+        style: { marginBottom: ".8rem" } },
       (open ? "▾ " : "▸ ") + "Adjust welfare ranges and species assumptions"),
     !open ? null : h("div", { className: "panel" },
     ...rows.map(r => h("div", { key: r.key, style: {
@@ -226,18 +219,18 @@ function SpeciesAssumptions({ state, set, rows }) {
           r.wrProxy ? "range borrowed from " + r.wrProxy : " ")),
       h("div", null,
         h("div", { style: { display: "flex", alignItems: "baseline", gap: ".5rem" } },
-          h("span", { className: "num", style: { fontSize: "1.3rem", fontWeight: 700,
+          h("span", { className: "fig", style: { fontSize: "1.3rem", fontWeight: 700,
                                                  color: "var(--accent)" } },
             r.welfareRange.toFixed(3)),
           h("span", { style: { fontSize: ".78rem", color: "var(--muted)" } },
             "welfare range (human = 1)")),
-        h("div", { className: "num", style: { fontSize: ".72rem", color: "var(--muted)" } },
+        h("div", { className: "tnum", style: { fontSize: ".72rem", color: "var(--muted)" } },
           "RP 90% interval " + WELFARE_RANGE_INTERVALS[r.wrKey].map(v => v.toFixed(3)).join("–")),
         h(Slider, { value: r.welfareRange, min: 0, max: 0.6, step: 0.001,
                     label: r.name + " welfare range",
                     onChange: v => set({ welfareRanges:
                       { ...state.welfareRanges, [r.key]: v } } ) }),
-        h("div", { className: "num", style: { fontSize: ".75rem", color: "var(--muted)" } },
+        h("div", { className: "tnum", style: { fontSize: ".75rem", color: "var(--muted)" } },
           "≈ " + Math.round(r.fraction * HOURS_PER_YEAR).toLocaleString() +
           " hours of disabling-level pain per year alive"),
         // Reader-settable multiple, for species with no pain track of their own.
@@ -250,10 +243,10 @@ function SpeciesAssumptions({ state, set, rows }) {
                           label: r.name + " severity relative to a broiler",
                           onChange: v => set({ multiples:
                             { ...state.multiples, [r.key]: v } } ) }),
-              h("div", { className: "num", style: { fontSize: ".72rem",
+              h("div", { className: "tnum", style: { fontSize: ".72rem",
                   color: "var(--warm)" } }, r.multiple.toFixed(2) + "x a broiler"))
           : r.provenance === "proxied"
-            ? h("div", { className: "num", style: { fontSize: ".72rem",
+            ? h("div", { className: "tnum", style: { fontSize: ".72rem",
                 color: "var(--muted)", marginTop: ".2rem" } },
                 r.multiple.toFixed(r.multiple < 0.1 ? 3 : 2) + "x a broiler (fixed)")
             : null),
@@ -280,11 +273,11 @@ function WorkedHen({ weights }) {
       justifyContent: "space-between", gap: ".6rem", fontSize: ".82rem",
       marginBottom: ".3rem" } },
     h("span", null, text),
-    h("strong", { className: "num" }, Math.round(value).toLocaleString() + " h"));
+    h("strong", { className: "tnum" }, Math.round(value).toLocaleString() + " h"));
 
   return h("div", { className: "panel", style: { marginBottom: "1rem" } },
     h("div", { style: { fontSize: ".9rem", marginBottom: ".9rem" } },
-      "Over her life, one caged laying hen spends ", h("span", { className: "num" },
+      "Over her life, one caged laying hen spends ", h("span", { className: "tnum" },
         Math.round(rawTotal).toLocaleString()), " hours in some kind of pain. ",
       "Those hours are not equally bad, so each is weighted by its intensity:"),
     barLabel("Hours in pain", rawTotal),
@@ -314,9 +307,9 @@ function WorkedHen({ weights }) {
               de[i] < 1 ? de[i].toFixed(2) : Math.round(de[i]).toLocaleString())))))),
     h("p", { style: { fontSize: ".86rem", marginTop: ".7rem", marginBottom: 0 } },
       "Weighted by intensity, her whole life of pain comes to ",
-      h("strong", { className: "num" }, Math.round(total).toLocaleString()),
+      h("strong", { className: "tnum" }, Math.round(total).toLocaleString()),
       " disabling-equivalent hours — about ",
-      h("strong", { className: "num" }, Math.round(total / 24).toLocaleString()),
+      h("strong", { className: "tnum" }, Math.round(total / 24).toLocaleString()),
       " days of disabling-level pain. ",
       "That is a ", h("em", null, "level"), ", not a saving: it is how bad her ",
       "life is before anything is done about it. What a reform removes from it ",
@@ -331,14 +324,10 @@ function SpeciesSection({ species, state, set }) {
                        .reduce((a, r) => a + r.painYears, 0);
   return h(Section, { n: "01", kicker: "By species",
       heading: `Chickens carry ${formatPercent(shareOf(chickens, species.total), 0)} of it.` },
-    h("div", { style: { display: "flex", gap: ".5rem", marginBottom: ".8rem" } },
+    h("div", { className: "seg", role: "group", style: { marginBottom: ".8rem" } },
       ...[[true, "With shrimp"], [false, "Without shrimp"]].map(([v, label]) =>
         h("button", { key: label, onClick: () => set({ includeShrimp: v }),
-          style: { cursor: "pointer", fontFamily: "var(--mono)", fontSize: ".75rem",
-            padding: ".3rem .7rem", borderRadius: ".3rem",
-            border: "1px solid " + (state.includeShrimp === v ? "var(--accent)" : "var(--rule)"),
-            background: state.includeShrimp === v ? "var(--accent)" : "transparent",
-            color: state.includeShrimp === v ? "var(--paper)" : "var(--ink)" } }, label))),
+          "aria-pressed": state.includeShrimp === v }, label))),
     h("div", { className: "panel" },
       ...rows.map(r => h("div", { key: r.key, className: "sp-row" },
         h("span", { className: "sp-name" }, r.name),
@@ -374,14 +363,10 @@ function CountrySection({ countries, state, set }) {
   return h(Section, { n: "02", kicker: "By country",
       heading: `${countries.rows[0].name} alone is ` +
                `${formatPercent(shareOf(countries.rows[0].painYears, countries.total), 0)}.` },
-    h("div", { style: { display: "flex", gap: ".5rem", marginBottom: ".8rem" } },
+    h("div", { className: "seg", role: "group", style: { marginBottom: ".8rem" } },
       ...[[true, "With fish"], [false, "Without fish"]].map(([v, label]) =>
         h("button", { key: label, onClick: () => set({ includeFish: v }),
-          style: { cursor: "pointer", fontFamily: "var(--mono)", fontSize: ".75rem",
-            padding: ".3rem .7rem", borderRadius: ".3rem",
-            border: "1px solid " + (state.includeFish === v ? "var(--accent)" : "var(--rule)"),
-            background: state.includeFish === v ? "var(--accent)" : "transparent",
-            color: state.includeFish === v ? "var(--paper)" : "var(--ink)" } }, label))),
+          "aria-pressed": state.includeFish === v }, label))),
     h("p", { style: { marginTop: 0, fontSize: ".85rem", color: "var(--muted)" } },
       "Click a country to see which species its suffering comes from."),
     h("div", { className: "panel scroll-x" },
@@ -437,7 +422,7 @@ function ReformSection({ reforms }) {
         h(RangeBar, { ...r.shareOfTotal, scaleMax, color: speciesColor(r.species) }),
         h("div", { style: { display: "flex", justifyContent: "space-between",
                             gap: ".6rem", marginTop: ".25rem", flexWrap: "wrap" } },
-          h("span", { className: "num", style: { fontSize: ".75rem",
+          h("span", { className: "tnum", style: { fontSize: ".75rem",
               color: "var(--muted)" } },
             "90% range " + rangeText(r.shareOfTotal)),
           h(Tag, { kind: r.provenance }))))),
@@ -473,12 +458,12 @@ function RemovedChart({ combined, reforms }) {
   return h("div", { className: "panel", style: { marginBottom: "1rem" } },
     h("div", { style: { display: "flex", alignItems: "baseline", gap: ".6rem",
                         flexWrap: "wrap", marginBottom: ".6rem" } },
-      h("span", { className: "num", style: { fontSize: "2.4rem", fontWeight: 700,
+      h("span", { className: "fig", style: { fontSize: "2.4rem", fontWeight: 700,
                                              lineHeight: 1 } },
         formatPercent(combined.value, 0)),
       h("span", { style: { fontSize: ".85rem", color: "var(--muted)" } },
         "of farmed-animal suffering removed · 90% range ",
-        h("span", { className: "num", style: { color: "var(--ink)" } },
+        h("span", { className: "tnum", style: { color: "var(--ink)" } },
           formatPercent(combined.min, 0) + "–" + formatPercent(combined.max, 0)))),
     h(StackBar, { segments, total: 1,
         label: `Reforms remove ${formatPercent(combined.value, 0)} of the total, ` +
@@ -525,9 +510,7 @@ function Provenance({ anchor, species }) {
   return h("footer", { style: { marginTop: "4rem", paddingTop: "1.2rem",
       borderTop: "1px solid var(--rule)", fontSize: ".85rem",
       color: "var(--muted)", lineHeight: 1.7 } },
-    h("div", { className: "num", style: { textTransform: "uppercase",
-        letterSpacing: ".12em", marginBottom: ".6rem",
-        color: "var(--ink)" } }, "Provenance"),
+    h("div", { className: "kicker", style: { color: "var(--ink)" } }, "Provenance"),
     h("p", null, "Hours of pain by intensity come from the ",
       link("https://welfarefootprint.org/", "Welfare Footprint Project"),
       " for laying hens and broilers, and from Rethink Priorities' ",
@@ -544,7 +527,7 @@ function Provenance({ anchor, species }) {
         " of this total, and none of it is measured."),
       " No source here covers fish pain. Their figure is whatever multiple of a ",
       "broiler you set above — currently ",
-      h("span", { className: "num" }, (fish?.multiple ?? 0).toFixed(2) + "x"),
+      h("span", { className: "tnum" }, (fish?.multiple ?? 0).toFixed(2) + "x"),
       ", an author assumption. Replacing it with a real fish pain track would be the single ",
       "biggest improvement to this model."),
     h("p", null, "Because of that, ", h("strong", null, "which species suffers ",
@@ -554,7 +537,7 @@ function Provenance({ anchor, species }) {
         formatPercent(shareOf(soft, species.total), 0) + " of this total is not measured."),
       " Species with no pain track of their own take a stated multiple of the ",
       "broiler, which is measured at ",
-      h("span", { className: "num" }, Math.round(anchor * HOURS_PER_YEAR).toLocaleString()),
+      h("span", { className: "tnum" }, Math.round(anchor * HOURS_PER_YEAR).toLocaleString()),
       " disabling-equivalent hours per year alive. ",
       "Ducks and turkeys take the broiler track at 1.00x; cattle and sheep ",
       "take a fixed 0.081x, an author assumption. This is the weakest joint ",
@@ -592,7 +575,7 @@ function Provenance({ anchor, species }) {
       "pain is a real disagreement, and the ratio above is where you settle ",
       "it — not a question this page has answered for you."),
     h("p", null, "Reform ranges are 90% intervals from ",
-      h("span", { className: "num" }, "2,000"), " draws. Each draw picks a tier ratio ",
+      h("span", { className: "tnum" }, "2,000"), " draws. Each draw picks a tier ratio ",
       "evenly on a log scale from 1x to 1000x, and one percentile of Rethink ",
       "Priorities' welfare-range distributions shared by every species — their ",
       "uncertainty is mostly about which theory of welfare is right, which moves ",
@@ -637,10 +620,8 @@ function App() {
     h(Hero, { total: species.total, species, countries, combined }),
     h(Section, { n: "00", kicker: "Assumptions",
                  heading: "The two things you can change" },
-      h("button", { onClick: reset, style: { marginBottom: ".8rem", cursor: "pointer",
-          fontFamily: "var(--mono)", fontSize: ".8rem", padding: ".4rem .8rem",
-          borderRadius: ".3rem", border: "1px solid var(--rule)",
-          background: "none", color: "var(--warm)" } }, "Reset assumptions"),
+      h("button", { onClick: reset, className: "btn",
+          style: { marginBottom: ".8rem", color: "var(--warm)" } }, "Reset assumptions"),
       h("h3", { style: { fontFamily: "var(--disp)", fontSize: "1.15rem", fontWeight: 600,
                          margin: "1rem 0 .4rem" } }, "How pain intensities compare"),
       // The total swings 35x across the plausible range of r, so this control
@@ -660,15 +641,14 @@ function Summary({ species, countries, combined }) {
     .filter(r => r.name !== "Other countries").slice(0, n)
     .map(r => ({ name: r.name, share: shareOf(r.painYears, total) }));
   const co = top(countries.rows, countries.total, 3);
-  const label = text => h("div", { className: "num", style: { fontSize: ".68rem",
-      letterSpacing: ".12em", textTransform: "uppercase", color: "var(--muted)",
+  const label = text => h("div", { className: "label", style: {
       marginBottom: ".3rem" } }, text);
   const col = (title, items, note) => h("div", { style: { flex: "1 1 12rem" } },
     label(title),
     ...items.map(i => h("div", { key: i.name, style: { display: "flex",
         justifyContent: "space-between", gap: ".6rem", fontSize: ".92rem" } },
       h("span", null, i.name),
-      h("strong", { className: "num" }, formatPercent(i.share, 0)))),
+      h("strong", { className: "tnum" }, formatPercent(i.share, 0)))),
     note ? h("div", { style: { fontSize: ".72rem", color: "var(--muted)",
                                marginTop: ".2rem" } }, note) : null);
   return h("div", { className: "panel", style: { display: "flex", flexWrap: "wrap",
@@ -676,7 +656,7 @@ function Summary({ species, countries, combined }) {
     col("Biggest countries", co, "excludes shrimp, which has no country split"),
     h("div", { style: { flex: "1 1 12rem" } },
       label("Reforms, fully implemented"),
-      h("div", { className: "num", style: { fontSize: "1.6rem", fontWeight: 700,
+      h("div", { className: "fig", style: { fontSize: "1.6rem", fontWeight: 700,
                                             color: "var(--warm)", lineHeight: 1.1 } },
         formatPercent(combined.value, 0)),
       h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
@@ -710,8 +690,7 @@ function SpeciesStack({ species }) {
 
 function Hero({ total, species, countries, combined }) {
   return h("header", { style: { paddingTop: "3.5rem" } },
-    h("div", { className: "num", style: { fontSize: ".7rem", letterSpacing: ".2em",
-        textTransform: "uppercase", color: "var(--accent)", marginBottom: "1rem" } },
+    h("div", { className: "kicker", style: { marginBottom: "1rem" } },
       "The scale of farmed-animal suffering"),
     h("h1", null,
       "Farmed animals endure ",

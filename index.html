@@ -68,17 +68,32 @@
 body{margin:0;background:var(--paper);color:var(--ink);
      font-family:var(--body);font-size:16.5px;line-height:1.6}
 main{width:var(--measure);margin-inline:auto;padding-block:0 5rem}
-h1{font-family:var(--disp);font-size:clamp(1.9rem,5vw,3rem);
+h1{font-family:var(--disp);font-size:clamp(2rem,5.5vw,3.3rem);
    line-height:1.08;letter-spacing:-.02em;font-weight:600;margin:0 0 .6em}
-h2{font-family:var(--disp);font-size:1.4rem;line-height:1.25;
+h2{font-family:var(--disp);font-size:clamp(1.4rem,3.4vw,1.75rem);line-height:1.2;
    letter-spacing:-.01em;font-weight:600;margin:0 0 .7em}
+/* Type roles. Monospace is only for numbers that line up in a column; digits
+   inside running text keep the body face with tabular figures, and large
+   standalone figures use the display face. */
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tnum{font-variant-numeric:tabular-nums}
+.fig{font-family:var(--disp);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kicker{font-size:.82rem;font-weight:600;color:var(--accent);margin-bottom:.35rem}
+.label{font-size:.78rem;font-weight:600;color:var(--muted)}
+.btn,.seg>button{font:inherit;font-size:.85rem;font-weight:500;cursor:pointer;
+  padding:.4rem .85rem;border-radius:.4rem;border:1px solid var(--rule);
+  background:none;color:var(--ink)}
+.btn:hover,.seg>button:hover{border-color:color-mix(in srgb,var(--ink) 40%,transparent)}
+.seg{display:flex;gap:.5rem;flex-wrap:wrap}
+.seg>button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);
+  color:var(--paper)}
+section{padding-top:4.5rem}
 .panel{background:var(--panel);border-radius:.6rem;padding:1.1rem 1.25rem}
 .bar{height:1rem;background:var(--paper);
      border-radius:.2rem;overflow:hidden}
 .bar>i{display:block;height:100%;transition:width .3s}
-.tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;
-     text-transform:uppercase;padding:.1rem .4rem;border-radius:.2rem}
+.tag{font-size:.72rem;font-weight:600;text-transform:capitalize;
+     padding:.1rem .45rem;border-radius:.3rem;white-space:nowrap}
 .tag-measured{background:var(--accent);color:var(--paper)}
 .tag-proxied{background:color-mix(in srgb,var(--warm) 45%,transparent);color:var(--ink)}
 .tag-author{background:var(--warm);color:var(--paper)}
@@ -130,7 +145,7 @@ input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
    onfocus="this.style.left='0.5rem'">Skip to content</a>
 <button id="theme" aria-label="Switch between light and dark"
   style="position:fixed;top:.75rem;right:.75rem;z-index:9;cursor:pointer;
-         font-family:var(--mono);font-size:.7rem;padding:.3rem .55rem;
+         font:inherit;font-size:.78rem;padding:.3rem .6rem;
          border-radius:.3rem;border:1px solid var(--rule);
          background:var(--paper);color:var(--ink)">theme</button>
 <script>
