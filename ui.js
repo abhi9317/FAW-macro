@@ -65,8 +65,8 @@ const HUED_SPECIES = ["fish", "broilers", "layers", "shrimp", "pigs", "ducks"];
 const speciesColor = key =>
   `var(--sp-${HUED_SPECIES.includes(key) ? key : "other"})`;
 
-/** Species silhouette in the current text colour. Species without an icon
- *  get an empty box of the same size so names stay aligned. */
+/** Species silhouette in the current text colour. A species without an icon
+ *  gets an empty box of the same size so names stay aligned. */
 const SpeciesIcon = ({ k, size = "1.35em" }) => {
   const icon = ICONS[k];
   const box = { width: size, height: size, flex: "none", display: "inline-block",
@@ -674,9 +674,7 @@ function Provenance({ anchor, species }) {
       "percentiles the distributions are interpolated linearly. Welfare ranges ",
       "you set by hand are held fixed. Uncertainty in the pain tracks themselves, ",
       "and in the fish and pig multiples, is not sampled. Insects, wild animals ",
-      "and fur farming are excluded."),
-    h("p", null, "Animal silhouettes from ",
-      link("https://thenounproject.com/", "the Noun Project"), "."));
+      "and fur farming are excluded."));
 }
 
 function App() {

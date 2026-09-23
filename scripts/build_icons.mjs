@@ -16,6 +16,7 @@ const MAP = {
   pigs:     { file: "noun_Pig_7950526.svg" },
   shrimp:   { file: "noun_Shrimp_8366895.svg", flip: true },
   turkeys:  { file: "noun_Turkey_7729512.svg", flip: true },
+  ducks:    { file: "noun_Duck_8354232.svg", flip: true },
 };
 const out = {};
 for (const [key, { file, flip = false }] of Object.entries(MAP)) {
