@@ -370,10 +370,10 @@ function WorkedHen({ weights }) {
 function SpeciesSection({ species, state, set }) {
   const rows = [...species.rows].sort((a, b) => b.painYears - a.painYears);
   const max = Math.max(...rows.map(r => r.painYears), 1);
-  const chickens = rows.filter(r => r.key === "layers" || r.key === "broilers")
-                       .reduce((a, r) => a + r.painYears, 0);
+  const top4 = rows.slice(0, 4).reduce((a, r) => a + r.painYears, 0);
   return h(Section, { n: "01", kicker: "By species",
-      heading: `Chickens carry ${formatPercent(shareOf(chickens, species.total), 0)} of it.` },
+      heading: `The top 4 species account for ` +
+               `${formatPercent(shareOf(top4, species.total), 0)} of farmed-animal suffering.` },
     h("div", { className: "seg", role: "group", style: { marginBottom: ".8rem" } },
       ...[[true, "With shrimp"], [false, "Without shrimp"]].map(([v, label]) =>
         h("button", { key: label, onClick: () => set({ includeShrimp: v }),
@@ -450,8 +450,16 @@ function CountrySection({ countries, state, set }) {
   const max = Math.max(...rows.map(r => r.painYears), 1);
   const [open, setOpen] = useState(null);
   return h(Section, { n: "02", kicker: "By country",
-      heading: `${countries.rows[0].name} alone is ` +
-               `${formatPercent(shareOf(countries.rows[0].painYears, countries.total), 0)}.` },
+      // "Other countries" is a residual row, not a country, so it never counts
+      // toward the top 5.
+      // The country total excludes shrimp, which has no country split; the
+      // asterisk points to the note under the list that says so.
+      heading: h(Fragment, null, `The top 5 countries account for ${formatPercent(shareOf(
+        countries.rows.filter(r => r.name !== "Other countries").slice(0, 5)
+          .reduce((a, r) => a + r.painYears, 0), countries.total), 0)} ` +
+               `of farmed-animal suffering`,
+        h("sup", { "aria-describedby": "country-note", title: "Outside shrimp",
+                   style: { fontSize: ".6em", color: "var(--muted)" } }, "*"), ".") },
     h("div", { className: "seg", role: "group", style: { marginBottom: ".8rem" } },
       ...[[true, "With fish"], [false, "Without fish"]].map(([v, label]) =>
         h("button", { key: label, onClick: () => set({ includeFish: v }),
@@ -481,8 +489,10 @@ function CountrySection({ countries, state, set }) {
           h("span", { className: "num", style: { fontSize: ".78rem", textAlign: "right" } },
             formatPercent(shareOf(r.painYears, countries.total), 1))),
         open === r.name ? h(CountryBreakdown, { row: r }) : null))),
-    h("p", { style: { fontSize: ".82rem", color: "var(--muted)", fontStyle: "italic" } },
-      "Shrimp is not split by country in the source data, so it appears in the ",
+    h("p", { id: "country-note", style: { fontSize: ".82rem", color: "var(--muted)",
+                                          fontStyle: "italic" } },
+      "* Outside shrimp. The source data does not split shrimp by country, so ",
+      "country shares are of the non-shrimp total and shrimp appears in the ",
       "species view only."));
 }
 
@@ -624,7 +634,11 @@ function Caveats({ species }) {
           "suffer compared with other species, so their figure is an assumption — ",
           h("span", { className: "tnum" }, (fish?.multiple ?? 0).toFixed(2) + "x"),
           " a broiler's pain — that you can change under Assumptions. Moving it ",
-          "can reorder which species suffers most."))));
+          "can reorder which species suffers most."))),
+    h("p", { style: { fontSize: ".85rem", color: "var(--muted)", margin: "1rem 0 0" } },
+      "One lever this page doesn't offer: decision theory. Everything above takes ",
+      "expected values at face value; other ways of deciding under this much ",
+      "uncertainty can change the conclusions. See the appendix."));
 }
 
 function Provenance({ anchor, species }) {
@@ -638,7 +652,7 @@ function Provenance({ anchor, species }) {
   return h("footer", { style: { marginTop: "4rem", paddingTop: "1.2rem",
       borderTop: "1px solid var(--rule)", fontSize: ".85rem",
       color: "var(--muted)", lineHeight: 1.7 } },
-    h("div", { className: "kicker", style: { color: "var(--ink)" } }, "Provenance"),
+    h("div", { className: "kicker", style: { color: "var(--ink)" } }, "Appendix"),
     h("p", null, "Hours of pain by intensity come from the ",
       link("https://welfarefootprint.org/", "Welfare Footprint Project"),
       " for laying hens and broilers, and from Rethink Priorities' ",
@@ -648,6 +662,16 @@ function Provenance({ anchor, species }) {
       link("https://docs.google.com/document/d/1xUvMKRkEOJQcc6V7VJqcLLGAJ2SsdZno0jTIUb61D8k/edit?usp=sharing",
            "50th-percentile estimates"),
       ", with their 5th and 95th percentiles driving the reform ranges. Populations are standing stock across 92 countries plus a residual row."),
+    h("p", null, h("strong", { style: { color: "var(--ink)" } },
+        "A parameter this page does not vary: decision theory."),
+      " Every figure here is an expected value — the reader picks the inputs, ",
+      "and the page multiplies them through. Other decision theories treat ",
+      "uncertainty differently (for example, by discounting very unlikely but ",
+      "very large possibilities, or by weighting the worst case more heavily), ",
+      "and applying one of them could change the results above, including ",
+      "which species and reforms come out on top. For more context, see ",
+      link("https://docs.google.com/document/d/1CZ5S-Eayxr64z5YADYR9M3P2WTp4u2Pgb4N-ynYbbMU/edit?tab=t.0#heading=h.kuhe2te0uxb3", "this write-up"),
+      "."),
     h("p", null, h("strong", { style: { color: "var(--warm)" } },
         "Farmed fish are " +
         formatPercent(shareOf(species.rows.find(r => r.key === "fish")?.painYears ?? 0,
