@@ -1363,7 +1363,7 @@ export const GEOGRAPHIES = {
   }
 };
 
-export const WORKBOOK_RATES = {
+export const COUNTRY_TABLE_RATES = {
   "fish": 0.0072,
   "layers": 0.042,
   "broilers": 0.042,

@@ -1,6 +1,6 @@
 // model.js — pure engine. No DOM, no React, no globals.
 import { PAIN_TRACKS, STUDY_PERIODS, WELFARE_RANGES, WELFARE_RANGE_INTERVALS, SPECIES,
-         COUNTRIES, COUNTRY_COLS, REFORM_DEFS, WORKBOOK_RATES } from "./data.js";
+         COUNTRIES, COUNTRY_COLS, REFORM_DEFS, COUNTRY_TABLE_RATES } from "./data.js";
 
 export const DEFAULT_LADDER = 30;
 
@@ -43,8 +43,8 @@ function measuredFraction(s, weights) {
 }
 
 /** The measured species that unmeasured ones are expressed against. Broilers,
- *  because their study period comes from the BOTEC template rather than being
- *  an author assumption, and their track covers the whole life. */
+ *  because their study period is a standard grow-out rather than an author
+ *  reconstruction, and their track covers the whole life. */
 export function anchorFraction(weights, anchorKey = "broilers") {
   return measuredFraction(SPECIES.find(x => x.key === anchorKey), weights);
 }
@@ -91,9 +91,9 @@ export function speciesTotals(weights, opts = {}) {
   return { rows, total: rows.reduce((a, r) => a + r.painYears, 0) };
 }
 
-/** Country columns 2-7 are workbook DALYs, already multiplied by a per-animal
- *  rate (WORKBOOK_RATES) - NOT head counts. Rescale them by the ratio of this
- *  model's rate to the workbook's. Columns 8-9 (cattle, sheep) ARE head counts
+/** Country columns 2-7 are DALY estimates, already multiplied by a per-animal
+ *  rate (COUNTRY_TABLE_RATES) - NOT head counts. Rescale them by the ratio of
+ *  this model's rate to the table's. Columns 8-9 (cattle, sheep) ARE head counts
  *  and are multiplied directly. Shrimp is absent: the source table has no
  *  shrimp column, so shrimp is a global block in the species view only. */
 export function countryTotals(weights, opts = {}) {
@@ -103,7 +103,7 @@ export function countryTotals(weights, opts = {}) {
   for (const s of SPECIES) {
     if (s.key === "shrimp") continue;
     const rate = fractions[s.key].fraction * resolveWelfareRange(s, welfareRanges);
-    scale[s.key] = WORKBOOK_RATES[s.key] ? rate / WORKBOOK_RATES[s.key] : rate;
+    scale[s.key] = COUNTRY_TABLE_RATES[s.key] ? rate / COUNTRY_TABLE_RATES[s.key] : rate;
   }
   const rows = COUNTRIES.map(row => {
     let painYears = 0;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate data.js from the pinned source workbooks. Run manually after
+"""Regenerate data.js from the pinned source spreadsheets. Run manually after
 updating anything in data/. Requires: pip install openpyxl"""
 import json, openpyxl
 from pathlib import Path
@@ -69,11 +69,7 @@ out += const("WELFARE_RANGE_INTERVALS", {
 
 # painSource: "track"      -> own measured pain track
 #             "proxy"      -> a fixed, stated multiple of a measured species
-#             "assumption" -> reader-set multiple; default from the workbook's
-#                             relative welfare scores (broilers -1.0, fish -0.4,
-#                             pigs -0.5). There is deliberately NO universal
-#                             calibration constant: see the spec's
-#                             "Why there is no single calibration constant".
+#             "assumption" -> reader-set multiple with an author-set default.
 SPECIES = [
   {"key":"fish","name":"Farmed fish","alive":113575686130,"wrKey":"carp",
    "wrProxy":"carp","painSource":"assumption","anchor":"broilers","multiple":0.40},
@@ -116,10 +112,10 @@ out += const("GEOGRAPHIES", {
     "US":{"name":"United States"}, "EU":{"name":"Europe"},
     "LA":{"name":"Latin America"}, "LM":{"name":"LMIC Asia"},
     "HA":{"name":"HIC Asia"},      "RW":{"name":"Rest of world"}})
-# Country columns 2-7 hold workbook DALYs, ALREADY multiplied by these
+# Country columns 2-7 hold DALY estimates, ALREADY multiplied by these
 # per-animal rates - they are not head counts. Columns 8-9 (cattle, sheep) ARE
 # head counts. countryTotals rescales the former and multiplies the latter.
-out += const("WORKBOOK_RATES", {
+out += const("COUNTRY_TABLE_RATES", {
     "fish": 0.4 * 0.018, "layers": 1.0 * 0.042, "broilers": 1.0 * 0.042,
     "pigs": 0.5 * 0.156, "ducks": 1.0 * 0.042, "turkeys": 1.0 * 0.042,
 })

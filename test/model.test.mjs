@@ -78,9 +78,8 @@ test("proxied and assumed species are multiples of the broiler anchor", () => {
   assert.equal(f.cattle.provenance, "proxied");
 });
 
-test("layers and broilers disagree despite an identical workbook score", () => {
-  // The fact that falsified the single-constant design. If these ever converge,
-  // the tracks have been mis-parsed.
+test("layers and broilers measure differently from their own tracks", () => {
+  // If these ever converge, the tracks have been mis-parsed.
   const f = speciesPainFractions(tierWeights({ ladder: 30 }));
   const ratio = f.broilers.fraction / f.layers.fraction;
   assert.ok(ratio > 1.3 && ratio < 1.5, `expected ~1.41x, got ${ratio}`);
