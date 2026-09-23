@@ -6,6 +6,7 @@ import {
 } from "./model.js";
 import { PAIN_TRACKS, SPECIES, WELFARE_RANGES, WELFARE_RANGE_INTERVALS } from "./data.js";
 import { WORLD } from "./map.js";
+import { ICONS } from "./icons.js";
 
 const SPECIES_NAME = Object.fromEntries(SPECIES.map(s => [s.key, s.name]));
 
@@ -63,6 +64,21 @@ const Slider = ({ value, min, max, step, onChange, label }) =>
 const HUED_SPECIES = ["fish", "broilers", "layers", "shrimp", "pigs", "ducks"];
 const speciesColor = key =>
   `var(--sp-${HUED_SPECIES.includes(key) ? key : "other"})`;
+
+/** Species silhouette in the current text colour. Species without an icon
+ *  get an empty box of the same size so names stay aligned. */
+const SpeciesIcon = ({ k, size = "1.35em" }) => {
+  const icon = ICONS[k];
+  const box = { width: size, height: size, flex: "none", display: "inline-block",
+                verticalAlign: "-0.3em" };
+  if (!icon) return h("span", { "aria-hidden": true, style: box });
+  return h("svg", { viewBox: icon.viewBox, "aria-hidden": true, focusable: "false",
+      className: "sp-icon", style: box },
+    h("g", { transform: icon.flip ? "matrix(-1 0 0 1 1200 0)" : undefined },
+      ...icon.d.map((d, i) => h("path", { key: i, d }))));
+};
+const withIcon = (k, name, size) => h("span", { style: { display: "inline-flex",
+    alignItems: "center", gap: ".45rem" } }, h(SpeciesIcon, { k, size }), name);
 
 const Swatch = ({ color }) => h("i", { "aria-hidden": true, style: {
   display: "inline-block", width: ".7rem", height: ".7rem", borderRadius: ".15rem",
@@ -150,10 +166,10 @@ function TierControl({ state, set }) {
 
 // RP species the page actually uses, and which page species borrow each.
 const WR_PLOT = [
-  { wrKey: "pig", name: "Pigs", uses: "pigs, cattle, sheep" },
-  { wrKey: "chicken", name: "Chickens", uses: "broilers, layers, ducks, turkeys" },
-  { wrKey: "carp", name: "Carp", uses: "farmed fish" },
-  { wrKey: "shrimp", name: "Shrimp", uses: "shrimp" },
+  { wrKey: "pig", name: "Pigs", icon: "pigs", uses: "pigs, cattle, sheep" },
+  { wrKey: "chicken", name: "Chickens", icon: "layers", uses: "broilers, layers, ducks, turkeys" },
+  { wrKey: "carp", name: "Carp", icon: "fish", uses: "farmed fish" },
+  { wrKey: "shrimp", name: "Shrimp", icon: "shrimp", uses: "shrimp" },
 ];
 const WR_AXIS_MAX = 1.2;
 
@@ -191,10 +207,10 @@ function WelfareRangePlot({ rows }) {
         onMouseEnter: () => setHover(r.wrKey), onMouseLeave: () => setHover(null),
         onFocus: () => setHover(r.wrKey), onBlur: () => setHover(null),
         onClick: () => setHover(r.wrKey),
-        style: { display: "grid", gridTemplateColumns: "5.5rem 1fr", gap: ".8rem",
+        style: { display: "grid", gridTemplateColumns: "7rem 1fr", gap: ".8rem",
                  alignItems: "center", padding: ".45rem 0", cursor: "default" } },
       h("div", null,
-        h("div", { style: { fontSize: ".9rem", fontWeight: 500 } }, r.name),
+        h("div", { style: { fontSize: ".9rem", fontWeight: 500 } }, withIcon(r.icon, r.name)),
         h("div", { className: "tnum", style: { fontSize: ".75rem", color: "var(--muted)" } },
           r.mid.toFixed(3))),
       h("div", { className: "wr-track" },
@@ -205,7 +221,7 @@ function WelfareRangePlot({ rows }) {
         h("span", { className: "wr-dot", style: { left: at(r.mid) } }),
         ...r.set.map(v => h("span", { key: v, className: "wr-set", style: { left: at(v) } }))))),
     // Axis: same grid columns so ticks sit under the plot, not the labels.
-    h("div", { style: { display: "grid", gridTemplateColumns: "5.5rem 1fr", gap: ".8rem" } },
+    h("div", { style: { display: "grid", gridTemplateColumns: "7rem 1fr", gap: ".8rem" } },
       h("span"),
       h("div", { className: "tnum", style: { position: "relative", height: "1.1rem",
                                             fontSize: ".7rem", color: "var(--muted)" } },
@@ -242,7 +258,7 @@ function SpeciesAssumptions({ state, set, rows }) {
         gap: ".8rem", alignItems: "center", padding: ".6rem 0",
         borderBottom: "1px solid var(--rule)" } },
       h("div", null,
-        h("div", { style: { fontSize: ".95rem", fontWeight: 500 } }, r.name),
+        h("div", { style: { fontSize: ".95rem", fontWeight: 500 } }, withIcon(r.key, r.name)),
         h("div", { style: { fontSize: ".75rem", color: "var(--muted)" } },
           r.wrProxy ? "range borrowed from " + r.wrProxy : " ")),
       h("div", null,
@@ -358,7 +374,7 @@ function SpeciesSection({ species, state, set }) {
           "aria-pressed": state.includeShrimp === v }, label))),
     h("div", { className: "panel" },
       ...rows.map(r => h("div", { key: r.key, className: "sp-row" },
-        h("span", { className: "sp-name" }, r.name),
+        h("span", { className: "sp-name" }, withIcon(r.key, r.name)),
         h("div", { className: "sp-bar" },
           h(Bar, { value: r.painYears, max, color: speciesColor(r.key) })),
         h("span", { className: "num sp-pct" },
@@ -378,7 +394,7 @@ function CountryBreakdown({ row }) {
     ...parts.map(([key, v], i) => h("div", { key, style: {
         display: "grid", gridTemplateColumns: "minmax(6rem,9rem) 1fr 3.5rem",
         gap: ".6rem", alignItems: "center", padding: ".12rem 0" } },
-      h("span", { style: { fontSize: ".82rem" } }, SPECIES_NAME[key] ?? key),
+      h("span", { style: { fontSize: ".82rem" } }, withIcon(key, SPECIES_NAME[key] ?? key, "1.2em")),
       h(Bar, { value: v, max, color: speciesColor(key) }),
       h("span", { className: "num", style: { fontSize: ".75rem", textAlign: "right" } },
         formatPercent(shareOf(v, row.painYears), 1)))));
@@ -658,7 +674,9 @@ function Provenance({ anchor, species }) {
       "percentiles the distributions are interpolated linearly. Welfare ranges ",
       "you set by hand are held fixed. Uncertainty in the pain tracks themselves, ",
       "and in the fish and pig multiples, is not sampled. Insects, wild animals ",
-      "and fur farming are excluded."));
+      "and fur farming are excluded."),
+    h("p", null, "Animal silhouettes from ",
+      link("https://thenounproject.com/", "the Noun Project"), "."));
 }
 
 function App() {
