@@ -66,15 +66,54 @@ export const STUDY_PERIODS = {
 };
 
 export const WELFARE_RANGES = {
-  "pig": 0.515,
-  "chicken": 0.332,
-  "octopus": 0.213,
-  "carp": 0.089,
+  "pig": 0.512,
+  "chicken": 0.327,
+  "octopus": 0.238,
+  "carp": 0.087,
   "bee": 0.071,
-  "salmon": 0.056,
-  "crayfish": 0.038,
-  "shrimp": 0.031,
-  "crab": 0.023
+  "salmon": 0.055,
+  "crayfish": 0.035,
+  "shrimp": 0.029,
+  "crab": 0.026
+};
+
+export const WELFARE_RANGE_INTERVALS = {
+  "pig": [
+    0.005,
+    1.031
+  ],
+  "chicken": [
+    0.002,
+    0.856
+  ],
+  "octopus": [
+    0.004,
+    1.527
+  ],
+  "carp": [
+    0,
+    0.59
+  ],
+  "bee": [
+    0,
+    0.449
+  ],
+  "salmon": [
+    0,
+    0.495
+  ],
+  "crayfish": [
+    0,
+    0.503
+  ],
+  "shrimp": [
+    0,
+    1.095
+  ],
+  "crab": [
+    0,
+    0.444
+  ]
 };
 
 export const SPECIES = [

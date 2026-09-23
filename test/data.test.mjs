@@ -20,10 +20,10 @@ test("slaughter tracks were converted from seconds to hours", () => {
 });
 
 test("welfare ranges are the RP 50th percentiles", () => {
-  assert.equal(WELFARE_RANGES.chicken, 0.332);
-  assert.equal(WELFARE_RANGES.pig, 0.515);
-  assert.equal(WELFARE_RANGES.shrimp, 0.031);
-  assert.equal(WELFARE_RANGES.carp, 0.089);
+  assert.equal(WELFARE_RANGES.chicken, 0.327);
+  assert.equal(WELFARE_RANGES.pig, 0.512);
+  assert.equal(WELFARE_RANGES.shrimp, 0.029);
+  assert.equal(WELFARE_RANGES.carp, 0.087);
 });
 
 test("nine species and 93 country rows", () => {

@@ -1,5 +1,5 @@
 // model.js — pure engine. No DOM, no React, no globals.
-import { PAIN_TRACKS, STUDY_PERIODS, WELFARE_RANGES, SPECIES,
+import { PAIN_TRACKS, STUDY_PERIODS, WELFARE_RANGES, WELFARE_RANGE_INTERVALS, SPECIES,
          COUNTRIES, COUNTRY_COLS, REFORM_DEFS, WORKBOOK_RATES } from "./data.js";
 
 export const DEFAULT_LADDER = 30;
@@ -82,7 +82,7 @@ export function speciesTotals(weights, opts = {}) {
     const { fraction, provenance } = fractions[s.key];
     const welfareRange = resolveWelfareRange(s, welfareRanges);
     rows.push({
-      key: s.key, name: s.name, alive: s.alive, fraction, provenance,
+      key: s.key, name: s.name, wrKey: s.wrKey, alive: s.alive, fraction, provenance,
       multiple: fractions[s.key].multiple, anchor: fractions[s.key].anchor,
       welfareRange, wrProxy: s.wrProxy ?? null,
       painYears: s.alive * fraction * welfareRange,
@@ -178,48 +178,105 @@ function avertedAt(weights, opts) {
   return { averted, total };
 }
 
-/** Each reform's and the combined share of ALL farmed-animal pain, at the
- *  current weights and across ROBUSTNESS_LADDERS. The current weights are
- *  included in the sample so the range always contains the shown value, even
- *  when independent tier ratios sit off the single-ladder line. */
-function shareRanges(weights, opts) {
-  const samples = [weights, ...ROBUSTNESS_LADDERS.map(l => tierWeights({ ladder: l }))]
-    .map(w => avertedAt(w, opts));
-  const range = pick => {
-    const vals = samples.map(({ averted, total }) =>
-      total > 0 ? pick(averted) / total : 0);
-    return { value: vals[0], min: Math.min(...vals), max: Math.max(...vals) };
+const combinedOf = averted => REFORM_DEFS
+  .filter(d => !ALTERNATIVE_REFORMS.includes(d.key))
+  .reduce((a, d) => a + averted[d.key], 0);
+
+/** Seeded PRNG (mulberry32), so ranges are identical on every render and in
+ *  tests rather than jittering as the reader drags a slider. */
+function seededRandom(seed) {
+  return () => {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const perReform = Object.fromEntries(REFORM_DEFS.map(d =>
-    [d.key, range(a => a[d.key])]));
-  const combined = range(a => REFORM_DEFS
-    .filter(d => !ALTERNATIVE_REFORMS.includes(d.key))
-    .reduce((s, d) => s + a[d.key], 0));
-  return { perReform, combined };
+}
+
+/** A welfare range at percentile p, through RP's published 5th, 50th and
+ *  95th percentiles and held flat beyond them. The upper half interpolates on
+ *  a log scale: the distributions are heavily right-skewed (shrimp's 95th is
+ *  38x its median), and a straight line would put most of that tail's mass
+ *  just above the median. The lower half is linear because several 5th
+ *  percentiles are exactly 0. */
+export function welfareRangeAt(wrKey, p) {
+  const [lo, hi] = WELFARE_RANGE_INTERVALS[wrKey];
+  const mid = WELFARE_RANGES[wrKey];
+  if (p <= 0.05) return lo;
+  if (p >= 0.95) return hi;
+  return p < 0.5 ? lo + (mid - lo) * (p - 0.05) / 0.45
+                 : mid * Math.pow(hi / mid, (p - 0.5) / 0.45);
+}
+
+export const UNCERTAINTY_SAMPLES = 2000;
+
+/** 90% intervals for each reform's, and the combined, share of ALL
+ *  farmed-animal pain. Each sample draws a tier ratio log-uniformly over the
+ *  slider's range and one welfare-range percentile shared by every species:
+ *  RP's intervals mostly reflect uncertainty about which theory of welfare is
+ *  right, which moves all species together, so independent draws would
+ *  overstate how far their ratios can drift apart. Welfare ranges the reader
+ *  has set by hand are held at their set value.
+ *  Depends only on opts, not the current tier weights, so dragging the tier
+ *  slider does not re-run it. */
+export function reformUncertainty(opts = {}, n = UNCERTAINTY_SAMPLES) {
+  const rand = seededRandom(1);
+  const logSpan = Math.log(LADDER_MAX / LADDER_MIN);
+  const fixed = opts.welfareRanges ?? {};
+  const perReform = Object.fromEntries(REFORM_DEFS.map(d => [d.key, []]));
+  const combined = [];
+  for (let i = 0; i < n; i++) {
+    const ladder = LADDER_MIN * Math.exp(rand() * logSpan);
+    const p = rand();
+    const welfareRanges = {};
+    for (const s of SPECIES) {
+      welfareRanges[s.key] = fixed[s.key] ?? welfareRangeAt(s.wrKey, p);
+    }
+    const { averted, total } = avertedAt(tierWeights({ ladder }), { ...opts, welfareRanges });
+    if (!(total > 0)) continue;
+    for (const d of REFORM_DEFS) perReform[d.key].push(averted[d.key] / total);
+    combined.push(combinedOf(averted) / total);
+  }
+  const interval = vals => {
+    if (!vals.length) return { min: 0, max: 0 };
+    vals.sort((a, b) => a - b);
+    const at = q => vals[Math.min(vals.length - 1, Math.floor(q * vals.length))];
+    return { min: at(0.05), max: at(0.95) };
+  };
+  return {
+    perReform: Object.fromEntries(Object.entries(perReform)
+      .map(([k, v]) => [k, interval(v)])),
+    combined: interval(combined),
+  };
 }
 
 /** The share of all farmed-animal pain that every reform together would
- *  remove at full adoption, with its range across tier ratios. */
-export function combinedReformShare(weights, opts = {}) {
-  return shareRanges(weights, opts).combined;
+ *  remove at full adoption, at the current settings, with its 90% interval. */
+export function combinedReformShare(weights, opts = {},
+                                    uncertainty = reformUncertainty(opts)) {
+  const { averted, total } = avertedAt(weights, opts);
+  return { value: total > 0 ? combinedOf(averted) / total : 0,
+           ...uncertainty.combined };
 }
 
-export function reformTable(weights, opts = {}) {
-  const { rows } = speciesTotals(weights, opts);
+export function reformTable(weights, opts = {},
+                            uncertainty = reformUncertainty(opts)) {
+  const { rows, total } = speciesTotals(weights, opts);
   const bySpecies = Object.fromEntries(rows.map(r => [r.key, r.painYears]));
-  const { perReform } = shareRanges(weights, opts);
   return REFORM_DEFS.map(def => {
     const reduction = reformReduction(def, weights);
     const share = componentShare(def, weights);
+    const painYearsAverted = (bySpecies[def.species] ?? 0) * share * reduction;
     return {
       key: def.key, label: def.label, species: def.species, reduction,
       componentShare: share,
       shareOfSpeciesPain: reduction * share,
-      shareOfTotal: perReform[def.key],
+      shareOfTotal: { value: total > 0 ? painYearsAverted / total : 0,
+                      ...uncertainty.perReform[def.key] },
       robustness: def.fixedReduction !== undefined
         ? null : reformRobustness(def),
       provenance: def.provenance,
-      painYearsAverted: (bySpecies[def.species] ?? 0) * share * reduction,
+      painYearsAverted,
     };
   });
 }

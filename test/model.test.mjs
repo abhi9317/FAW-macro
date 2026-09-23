@@ -6,8 +6,9 @@ import { tierWeights, exchangeRates, disablingEquivalentHours,
          reformReduction, componentShare, reformRobustness,
          ROBUSTNESS_LADDERS, LADDER_MIN, LADDER_MAX,
          reformTable, DEFAULT_STATE, encodeState, decodeState,
-         formatPainYears, formatPercent, combinedReformShare } from "../model.js";
-import { PAIN_TRACKS, REFORM_DEFS } from "../data.js";
+         formatPainYears, formatPercent, combinedReformShare,
+         reformUncertainty, welfareRangeAt } from "../model.js";
+import { PAIN_TRACKS, REFORM_DEFS, SPECIES } from "../data.js";
 
 const near = (a, b, tol = 1e-6) =>
   assert.ok(Math.abs(a - b) < tol, `expected ${b}, got ${a}`);
@@ -104,16 +105,16 @@ const W30 = tierWeights({ ladder: 30 });
 test("species totals at r=30 match the spec table (millions)", () => {
   const { rows, total } = speciesTotals(W30);
   const m = Object.fromEntries(rows.map(r => [r.key, r.painYears / 1e6]));
-  near(m.fish,     248.82, 0.01);
-  near(m.broilers, 217.67, 0.01);
-  near(m.layers,   118.86, 0.01);
-  near(m.shrimp,    63.47, 0.01);
-  near(m.ducks,     25.90, 0.01);
-  near(m.pigs,      15.37, 0.01);
-  near(m.sheep,      6.31, 0.01);
-  near(m.turkeys,    4.73, 0.01);
-  near(m.cattle,     4.59, 0.01);
-  near(total / 1e6, 705.71, 0.05);
+  near(m.fish,     243.23, 0.01);
+  near(m.broilers, 214.39, 0.01);
+  near(m.layers,   117.06, 0.01);
+  near(m.shrimp,    59.37, 0.01);
+  near(m.ducks,     25.51, 0.01);
+  near(m.pigs,      15.28, 0.01);
+  near(m.sheep,      6.27, 0.01);
+  near(m.turkeys,    4.66, 0.01);
+  near(m.cattle,     4.57, 0.01);
+  near(total / 1e6, 690.34, 0.05);
 });
 
 test("the species ranking is conditional on the fish multiple, not a finding", () => {
@@ -147,7 +148,7 @@ test("measured species are unaffected by a reader-set multiple", () => {
 
 test("a welfare-range override moves only that species", () => {
   const base = speciesTotals(W30);
-  const bumped = speciesTotals(W30, { welfareRanges: { fish: 0.178 } });
+  const bumped = speciesTotals(W30, { welfareRanges: { fish: 0.174 } });
   const b = k => base.rows.find(r => r.key === k).painYears;
   const u = k => bumped.rows.find(r => r.key === k).painYears;
   near(u("fish") / b("fish"), 2.0, 1e-9);
@@ -316,11 +317,37 @@ test("percentages round to the requested places", () => {
   assert.equal(formatPercent(0.0058, 2), "0.58%");
 });
 
-test("each reform's share of total pain carries a range containing its value", () => {
+test("each reform's share of total pain carries an ordered 90% interval", () => {
   for (const r of reformTable(tierWeights({ ladder: 30 }))) {
-    const { value, min, max } = r.shareOfTotal;
-    assert.ok(min <= value && value <= max, r.key);
+    const { min, max } = r.shareOfTotal;
+    assert.ok(min >= 0 && min <= max, r.key);
   }
+});
+
+test("welfare ranges pass through RP's 5th, 50th and 95th percentiles", () => {
+  assert.equal(welfareRangeAt("chicken", 0.01), 0.002);
+  near(welfareRangeAt("chicken", 0.5), 0.327);
+  near(welfareRangeAt("chicken", 0.95), 0.856);
+  assert.equal(welfareRangeAt("shrimp", 0.99), 1.095);
+  // Log-scale upper half: the midpoint between 50th and 95th is geometric.
+  near(welfareRangeAt("shrimp", 0.725), Math.sqrt(0.029 * 1.095));
+});
+
+test("combined reform interval at defaults, across tier ratios and welfare ranges", () => {
+  const c = combinedReformShare(tierWeights({ ladder: 30 }));
+  near(c.min, 0.049, 5e-3);
+  near(c.max, 0.375, 5e-3);
+});
+
+test("the sampled interval is deterministic", () => {
+  assert.deepEqual(reformUncertainty({}), reformUncertainty({}));
+});
+
+test("hand-set welfare ranges are held fixed, leaving only tier-ratio spread", () => {
+  const welfareRanges = Object.fromEntries(SPECIES.map(s => [s.key, 0.1]));
+  const { combined } = reformUncertainty({ welfareRanges });
+  const free = reformUncertainty({}).combined;
+  assert.ok(combined.max - combined.min < free.max - free.min);
 });
 
 test("combined reforms skip furnished cages, the alternative to cage-free", () => {
@@ -330,8 +357,7 @@ test("combined reforms skip furnished cages, the alternative to cage-free", () =
     .reduce((a, r) => a + r.painYearsAverted, 0);
   const c = combinedReformShare(w);
   near(c.value, sum / t);
-  near(c.value, 0.2964, 1e-3);
-  assert.ok(c.min <= c.value && c.value <= c.max);
+  near(c.value, 0.2985, 1e-3);
 });
 
 test("a country's species split sums to its total", () => {

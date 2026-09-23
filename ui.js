@@ -1,10 +1,10 @@
 // ui.js — React rendering. All arithmetic lives in model.js.
 import {
   DEFAULT_STATE, encodeState, decodeState, tierWeights, exchangeRates,
-  speciesTotals, countryTotals, reformTable, combinedReformShare, anchorFraction,
+  speciesTotals, countryTotals, reformTable, combinedReformShare, reformUncertainty, anchorFraction,
   formatPainYears, formatPercent, LADDER_MIN, LADDER_MAX, HOURS_PER_YEAR,
 } from "./model.js";
-import { PAIN_TRACKS, SPECIES } from "./data.js";
+import { PAIN_TRACKS, SPECIES, WELFARE_RANGE_INTERVALS } from "./data.js";
 
 const SPECIES_NAME = Object.fromEntries(SPECIES.map(s => [s.key, s.name]));
 
@@ -102,6 +102,8 @@ function SpeciesAssumptions({ state, set, rows }) {
             r.welfareRange.toFixed(3)),
           h("span", { style: { fontSize: ".78rem", color: "var(--muted)" } },
             "welfare range (human = 1)")),
+        h("div", { className: "num", style: { fontSize: ".72rem", color: "var(--muted)" } },
+          "RP 90% interval " + WELFARE_RANGE_INTERVALS[r.wrKey].map(v => v.toFixed(3)).join("–")),
         h(Slider, { value: r.welfareRange, min: 0, max: 0.6, step: 0.001,
                     label: r.name + " welfare range",
                     onChange: v => set({ welfareRanges:
@@ -269,9 +271,10 @@ function ReformSection({ reforms }) {
     h("p", { style: { marginTop: 0, fontSize: ".95rem", color: "var(--muted)" } },
       "Each figure is the share of ", h("strong", { style: { color: "var(--ink)" } },
         "all farmed-animal pain hours"),
-      " that a reform would remove if adopted everywhere. The range shows how far ",
-      "that share moves if you change how much worse each pain tier is (anywhere ",
-      "from 1x to 1000x)."),
+      " that a reform would remove if adopted everywhere, at the settings above. ",
+      "The range is a 90% interval over the two big unknowns: how much worse ",
+      "each pain tier is (anywhere from 1x to 1000x), and Rethink Priorities' ",
+      "uncertainty about every welfare range."),
     h("div", { className: "panel" },
       ...rows.map(r => h("div", { key: r.key, style: {
           padding: ".55rem 0", borderBottom: "1px solid var(--rule)" } },
@@ -309,7 +312,7 @@ function BottomLine({ combined, species }) {
                                               lineHeight: 1.2 } },
           formatPercent(combined.min, 0) + "–" + formatPercent(combined.max, 0)),
         h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
-          "range across pain-tier ratios"))),
+          "90% range, across pain-tier ratios and welfare ranges"))),
     h("p", { style: { fontSize: ".95rem" } },
       "That counts every reform above at full, worldwide adoption — cage-free ",
       "rather than furnished cages for hens, since the two replace the same ",
@@ -319,8 +322,10 @@ function BottomLine({ combined, species }) {
       fish && fish.painYears > 0
         ? h(Fragment, null, "The largest untouched block is farmed fish: ",
             h("strong", null, formatPercent(shareOf(fish.painYears, species.total), 0)),
-            " of the total, with stunning at slaughter as the only reform counted.")
-        : null));
+            " of the total, with stunning at slaughter as the only reform counted. ")
+        : null,
+      "The ", formatPercent(combined.value, 0), " uses the settings above; the ",
+      "range also covers tier ratios and welfare ranges you haven't picked."));
 }
 
 function Provenance({ anchor, species }) {
@@ -343,9 +348,9 @@ function Provenance({ anchor, species }) {
       link("https://rethinkpriorities.github.io/quantifying_shrimp_pain/",
            "Quantifying shrimp pain"),
       " for shrimp. Welfare ranges are Rethink Priorities' ",
-      link("https://rethinkpriorities.org/research-area/welfare-range-estimates/",
+      link("https://docs.google.com/document/d/1xUvMKRkEOJQcc6V7VJqcLLGAJ2SsdZno0jTIUb61D8k/edit?usp=sharing",
            "50th-percentile estimates"),
-      ". Populations are standing stock across 92 countries plus a residual row."),
+      ", with their 5th and 95th percentiles driving the reform ranges. Populations are standing stock across 92 countries plus a residual row."),
     h("p", null, h("strong", { style: { color: "var(--warm)" } },
         "Farmed fish are " +
         formatPercent(shareOf(species.rows.find(r => r.key === "fish")?.painYears ?? 0,
@@ -406,8 +411,16 @@ function Provenance({ anchor, species }) {
       "Whether constant mild deprivation is worth that much less than acute ",
       "pain is a real disagreement, and the ratio above is where you settle ",
       "it — not a question this page has answered for you."),
-    h("p", null, "Uncertainty intervals are published by both sources and are ",
-      "not shown here. Insects, wild animals and fur farming are excluded."));
+    h("p", null, "Reform ranges are 90% intervals from ",
+      h("span", { className: "num" }, "2,000"), " draws. Each draw picks a tier ratio ",
+      "evenly on a log scale from 1x to 1000x, and one percentile of Rethink ",
+      "Priorities' welfare-range distributions shared by every species — their ",
+      "uncertainty is mostly about which theory of welfare is right, which moves ",
+      "all species together. Between the published 5th, 50th and 95th ",
+      "percentiles the distributions are interpolated linearly. Welfare ranges ",
+      "you set by hand are held fixed. Uncertainty in the pain tracks themselves, ",
+      "and in the fish and pig multiples, is not sampled. Insects, wild animals ",
+      "and fur farming are excluded."));
 }
 
 function App() {
@@ -431,8 +444,14 @@ function App() {
   };
   const species = useMemo(() => speciesTotals(weights, opts), [weights, state]);
   const countries = useMemo(() => countryTotals(weights, opts), [weights, state]);
-  const reforms = useMemo(() => reformTable(weights, opts), [weights, state]);
-  const combined = useMemo(() => combinedReformShare(weights, opts), [weights, state]);
+  // The sampled intervals depend on everything but the tier ratio, so dragging
+  // the tier slider re-uses them instead of re-running 2,000 draws.
+  const uncertainty = useMemo(() => reformUncertainty(opts),
+    [state.welfareRanges, state.multiples, state.includeShrimp, state.includeFish]);
+  const reforms = useMemo(() => reformTable(weights, opts, uncertainty),
+    [weights, state, uncertainty]);
+  const combined = useMemo(() => combinedReformShare(weights, opts, uncertainty),
+    [weights, state, uncertainty]);
 
   return h(Fragment, null,
     h(Hero, { total: species.total, species, countries, combined }),
@@ -484,7 +503,7 @@ function Summary({ species, countries, combined }) {
                                             color: "var(--warm)", lineHeight: 1.1 } },
         formatPercent(combined.value, 0)),
       h("div", { style: { fontSize: ".8rem", color: "var(--muted)" } },
-        "of the total removed (range " + formatPercent(combined.min, 0) + "–" +
+        "of the total removed (90% range " + formatPercent(combined.min, 0) + "–" +
         formatPercent(combined.max, 0) + ")")));
 }
 
