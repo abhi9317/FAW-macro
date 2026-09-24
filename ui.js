@@ -506,7 +506,7 @@ function ReformSection({ reforms }) {
 
   return h(Section, { n: "03", kicker: "What reforms reduce",
       heading: `The biggest single reform removes ` +
-               `${formatPercent(rows[0].shareOfTotal.value, 0)} of suffering.` },
+               `${formatPercent(rows[0].shareOfTotal.value, 0)} of all farmed-animal suffering.` },
     h("p", { style: { marginTop: 0, fontSize: ".95rem", color: "var(--muted)" } },
       "Each figure is the share of ", h("strong", { style: { color: "var(--ink)" } },
         "all farmed-animal pain hours"),
@@ -589,7 +589,7 @@ function BottomLine({ combined, species, reforms }) {
   const fish = species.rows.find(r => r.key === "fish");
   return h(Section, { n: "04", kicker: "The bottom line",
       heading: `Fully implemented, today's reforms would remove ` +
-               `${formatPercent(combined.value, 0)} of suffering.` },
+               `${formatPercent(combined.value, 0)} of all farmed-animal suffering.` },
     h(RemovedChart, { combined, reforms }),
     h("p", { style: { fontSize: ".95rem" } },
       "That counts every reform above at full, worldwide adoption — cage-free ",
